@@ -1,6 +1,7 @@
 
 import click
 import zmq
+from datetime import datetime
 
 class zmq_env:
     def __init__(self):
@@ -32,4 +33,15 @@ def readevent(ctx):
 
     ctx.obj.sfp0.send_string("read")
     data = ctx.obj.sfp0.recv()
+    
+    dateTimeObj = datetime.now()
+    filename = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f.txt")
+    try: 
+        f = open(filename,'w')
+        f.write("\n".join([str(d) for d in data]))
+        f.close()
+    except:
+        print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
+
     print(len(data))
+
