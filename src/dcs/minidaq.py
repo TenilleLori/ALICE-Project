@@ -32,16 +32,27 @@ def readevent(ctx):
     print(ctx.obj.trdbox.recv_string())
 
     ctx.obj.sfp0.send_string("read")
-    data = ctx.obj.sfp0.recv()
+    data1 = ctx.obj.sfp0.recv()
+
+    # ctx.obj.sfp1.send_string("read")
+    # data2 = ctx.obj.sfp1.recv()
     
     dateTimeObj = datetime.now()
-    filename = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f.txt")
+    filename = dateTimeObj.strftime("data/daq-1-%d%b%Y-%H%M%S%f.txt")
     try: 
         f = open(filename,'w')
-        f.write("\n".join([str(d) for d in data]))
+        f.write("\n".join([str(d) for d in data1]))
         f.close()
     except:
         print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
+    
+    # filename = dateTimeObj.strftime("data/daq-2-%d%b%Y-%H%M%S%f.txt")
+    # try:
+    #     f = open(filename,'w')
+    #     f.write("\n".join([str(d) for d in data2]))
+    #     f.close()
+    # except:
+    #     print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
 
-    print(len(data))
-
+    print(len(data1))
+    # print(len(data2))
