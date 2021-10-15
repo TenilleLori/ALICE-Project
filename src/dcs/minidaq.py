@@ -38,10 +38,13 @@ def readevent(ctx):
     # data2 = ctx.obj.sfp1.recv()
     
     dateTimeObj = datetime.now()
-    filename = dateTimeObj.strftime("data/daq-1-%d%b%Y-%H%M%S%f.txt")
+    timestamp = dateTimeObj.strftime("%d%b%Y-%H%M%S%f")
     try: 
-        f = open(filename,'w')
-        f.write("\n".join([str(d) for d in data1]))
+        f = open("data/1-chamber.csv",'a')
+        writer = csv.writer(f)
+	writer.writerow(timestamp+data1)
+
+	#f.write("\n".join([str(d) for d in data1]))
         f.close()
     except:
         print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
