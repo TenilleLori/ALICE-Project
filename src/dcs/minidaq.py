@@ -1,6 +1,7 @@
 
 import click
 import zmq
+import csv
 from datetime import datetime
 
 class zmq_env:
@@ -40,11 +41,11 @@ def readevent(ctx):
     dateTimeObj = datetime.now()
     timestamp = dateTimeObj.strftime("%d%b%Y-%H%M%S%f")
     try: 
-        f = open("data/1-chamber.csv",'a')
+        f = open("data/1-chamber.csv",'a',newline='')
         writer = csv.writer(f)
-	writer.writerow(timestamp+data1)
+        writer.writerow([d for d in data1])
 
-	#f.write("\n".join([str(d) for d in data1]))
+        #f.write("\n".join([str(d) for d in data1]))
         f.close()
     except:
         print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
