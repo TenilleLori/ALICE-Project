@@ -41,9 +41,9 @@ def readevent(ctx):
     dateTimeObj = datetime.now()
     timestamp = dateTimeObj.strftime("%d%b%Y-%H%M%S%f")
     try: 
-        f = open("data/1-chamber.csv",'a',newline='')
+        f = open("data/1-chamber_timestamp_test.csv",'a',newline='')
         writer = csv.writer(f)
-        writer.writerow([d for d in data1])
+        writer.writerow([timestamp]+[d for d in data1])
 
         #f.write("\n".join([str(d) for d in data1]))
         f.close()
