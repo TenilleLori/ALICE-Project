@@ -106,7 +106,10 @@ class describe:
 ParsingContext = namedtuple('ParsingContext', [
   'major', 'minor', 'nhw', 'sm', 'stack', 'layer', 'side', #from HC0
   'ntb', 'bc_counter', 'pre_counter', 'pre_phase', # from HC1
-  'SIDE', 'HC', 'VER' ##
+  'SIDE', 'HC', 'VER', 'det', ## derived from HCx
+  'rob', 'mcm', ## from MCM header
+  'store_digits', ## links to helper functions/functors
+  'event', ## event number
 ])
 
 # ------------------------------------------------------------------------
@@ -149,6 +152,8 @@ def parse_hc0(ctx, dword, fields):
 	ctx.layer = fields.p  # (dword >>  6) & 0x1f
 	ctx.stack = fields.c  # (dword >>  3) & 0x3
 	ctx.side  = fields.i  # (dword >>  2) & 0x1
+
+	ctx.det = 18*ctx.sm + 6*ctx.stack + ctx.layer
 
 	# An alternative to update the context - which one is easier to read?
 	# (ctx.major,ctx.minor,ctx.nhw,ctx.sm,ctx.layer,ctx.stack,ctx.side) = fields
@@ -202,6 +207,9 @@ def parse_hc3(ctx, dword, fields):
 @describe("MCM {r}:{m:02} event {e}")
 def parse_mcmhdr(ctx, dword, fields):
 
+	ctx.rob = fields.r
+	ctx.mcm = fields.m
+
 	if ctx.major & 0x20:   # Zero suppression
 		return dict(readlist=[[parse_adcmask]])
 
@@ -219,6 +227,8 @@ def parse_adcmask(ctx, dword, fields):
 	count = 0
 	readlist = list()
 
+	adcdata = np.zeros(ctx.ntb, dtype=np.uint16)
+
 	for ch in range(21):
 		if ch in [9,19]:
 			desc += " "
@@ -227,7 +237,7 @@ def parse_adcmask(ctx, dword, fields):
 			count += 1
 			desc += str(ch%10)
 			for tb in range ( 0, ctx.ntb , 3 ):
-				readlist.append([parse_adcdata(channel=ch, timebin=tb)])
+				readlist.append([parse_adcdata(channel=ch, timebin=tb, adcdata=adcdata)])
 		else:
 			desc += "."
 
@@ -249,12 +259,13 @@ class parse_adcdata:
 	To parse ADC data, we need to know the channel number and the timebins
 	in this dword. I don't think this data should be kept in the context.
 	The parser for the MCM header / adcmask therefore stores it in the parser
-	for the ADC data word. This parser therefore has to be a callable function.
+	for the ADC data word. This parser therefore has to be a callable object.
 	"""
 
-	def __init__(self, channel, timebin):
+	def __init__(self, channel, timebin, adcdata=None):
 		self.channel = channel
 		self.timebin = timebin
+		self.adcdata = adcdata
 		self.__name__ = "parse_adcdata"
 
 	# @decode("xxxx:xxxx:xxyy:yyyy:yyyy:zzzz:zzzz:zzff")
@@ -269,8 +280,19 @@ class parse_adcdata:
 		msg += f"tb {self.timebin:2} (f={f})   {x:4}  {y:4}  {z:4}"
 
 		logger.info(msg)
+
+		if self.adcdata is not None and ctx.store_digits is not None:
+			# store the ADC values in the reserved array
+			for i,adc in enumerate((x,y,z)):
+				if self.timebin+i < len(self.adcdata):
+					self.adcdata[self.timebin+i] = adc
+
+			# if this is the last dword for this channel -> store the digit
+			if self.timebin+3 >= len(self.adcdata):
+				ctx.store_digits(ctx.event, ctx.det, ctx.rob, ctx.mcm,
+				                 self.channel, self.adcdata)
+
 		return dict()
-		# return dict(description=desc)
 
 
 # ------------------------------------------------------------------------
@@ -281,8 +303,13 @@ class LinkParser:
 
 
 	#Defining the initial variables for class
-	def __init__(self):
-		pass
+	def __init__(self, store_digits = None):
+		self.ctx = ParsingContext
+		self.ctx.event = 0
+		self.ctx.store_digits = store_digits
+
+	def next_event(self):
+		self.ctx.event += 1
 
 	def process(self,linkdata, linkpos=-1):
 		'''Initialize parsing context and process data from one optical link.
@@ -290,7 +317,6 @@ class LinkParser:
 		Parameter: linkdata = iterable list of uint32 data words
         '''
 
-		self.ctx = ParsingContext
 		self.ctx.current_linkpos = linkpos
 
 		self.readlist = [ list([parse_tracklet, parse_eot]) ]
