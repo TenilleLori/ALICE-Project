@@ -12,7 +12,7 @@ from .o32reader import o32reader
 from .zmqreader import zmqreader
 
 @click.command()
-@click.argument('source', default='tcp://localhost:7776')
+@click.argument('source', default='tcp://localhost:7750')
 @click.option('-o', '--loglevel', default=logging.INFO)
 @click.option('-s', '--suppress', multiple=True)
 @click.option('-q', '--quiet', count=True)

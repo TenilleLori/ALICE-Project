@@ -30,22 +30,23 @@ def minidaq(ctx):
 def readevent(ctx):
 
     ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
-    print(ctx.obj.trdbox.recv_string())
+    #print(ctx.obj.trdbox.recv_string())
 
     ctx.obj.sfp0.send_string("read")
     data1 = ctx.obj.sfp0.recv()
-
+    
+    #print(data1)
     # ctx.obj.sfp1.send_string("read")
     # data2 = ctx.obj.sfp1.recv()
     
     dateTimeObj = datetime.now()
     timestamp = dateTimeObj.strftime("%d%b%Y-%H%M%S%f")
     try: 
-        f = open("data/1-chamber_timestamp_test.csv",'a',newline='')
-        writer = csv.writer(f)
-        writer.writerow([timestamp]+[d for d in data1])
-
-        #f.write("\n".join([str(d) for d in data1]))
+        f = open("data/"+timestamp+".txt",'w',newline='')
+       # writer = csv.writer(f)
+        #writer.writerow([timestamp]+[d for d in data1])
+        for d in data1:
+            f.write("%s\n" % hex(d))
         f.close()
     except:
         print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
