@@ -63,6 +63,29 @@ class AddLocationFilter(logging.Filter):
       'SKP': { "prefix": '\033[0;31m' },
     }
 
+    def set_verbosity(self, verbosity):
+
+        if verbosity < 5:
+            self.dword_types['ADC']['suppress'] = True
+
+        if verbosity < 4:
+            self.dword_types['MSK']['suppress'] = True
+            self.dword_types['TRK']['suppress'] = True
+
+        if verbosity < 3:
+            self.dword_types['MCM']['suppress'] = True
+            self.dword_types['EOT']['suppress'] = True
+            self.dword_types['EOD']['suppress'] = True
+
+        if verbosity < 2:
+            self.dword_types['HC1']['suppress'] = True
+            self.dword_types['HC2']['suppress'] = True
+            self.dword_types['HC3']['suppress'] = True
+
+        if verbosity < 1:
+            self.dword_types['HC0']['suppress'] = True
+
+
     def filter(self, record):
 
         rectype = record.msg[:3]
