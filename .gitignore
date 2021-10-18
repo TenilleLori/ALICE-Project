@@ -1,0 +1,12 @@
+__pycache__
+/venv
+/dist
+/src/pytrd_tdietel.egg-info
+/data
+
+/obsolete
+/digits*.csv
+*.npy
+*.o32
+*.o32.gz
+*.o32.bz2
