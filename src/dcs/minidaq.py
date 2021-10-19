@@ -32,9 +32,12 @@ def readevent(ctx):
     ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
     #print(ctx.obj.trdbox.recv_string())
 
-    ctx.obj.sfp0.send_string("read")
-    data1 = ctx.obj.sfp0.recv()
+    #ctx.obj.sfp0.send_string("read")
+    #data1 = ctx.obj.sfp0.recv()
     
+    ctx.obj.sfp1.send_string("read")
+    data2 = ctx.obj.sfp1.recv()
+    print(len(data2))
     #print(data1)
     # ctx.obj.sfp1.send_string("read")
     # data2 = ctx.obj.sfp1.recv()
