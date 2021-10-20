@@ -51,17 +51,11 @@ def minidaq(ctx):
 def readevent(ctx):
 
     ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
-    #print(ctx.obj.trdbox.recv_string())
+    print(ctx.obj.trdbox.recv_string())
 
     ctx.obj.sfp0.send_string("read")
-<<<<<<< HEAD
-    data1 = ctx.obj.sfp0.recv()
-    
-    #print(data1)
-=======
     rawdata = ctx.obj.sfp0.recv()
 
->>>>>>> tenille
     # ctx.obj.sfp1.send_string("read")
     # data2 = ctx.obj.sfp1.recv()
 
@@ -77,30 +71,16 @@ def readevent(ctx):
 
     else:
         raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
-    
-<<<<<<< HEAD
-    dateTimeObj = datetime.now()
-    timestamp = dateTimeObj.strftime("%d%b%Y-%H%M%S%f")
-    try: 
-        f = open("data/"+timestamp+".txt",'w',newline='')
-       # writer = csv.writer(f)
-        #writer.writerow([timestamp]+[d for d in data1])
-        for d in data1:
-            f.write("%s\n" % hex(d))
-        f.close()
-    except:
-        print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
-=======
+
 #    dateTimeObj = datetime.now()
 #    filename = dateTimeObj.strftime("data/daq-1-%d%b%Y-%H%M%S%f.txt")
-#    try: 
+#    try:
 #        f = open(filename,'w')
 #        f.write("\n".join([str(d) for d in data1]))
 #        f.close()
 #    except:
 #        print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
->>>>>>> tenille
-    
+
     # filename = dateTimeObj.strftime("data/daq-2-%d%b%Y-%H%M%S%f.txt")
     # try:
     #     f = open(filename,'w')
