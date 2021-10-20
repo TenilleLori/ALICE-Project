@@ -1,8 +1,21 @@
 
 import click
 import zmq
-import csv
 from datetime import datetime
+
+import sys
+import numpy as np
+import argparse
+from struct import unpack
+import time
+import logging
+from typing import NamedTuple
+from datetime import datetime
+
+from .header import TrdboxHeader
+from .linkparser import LinkParser, logflt
+from .logging import ColorFormatter
+from .logging import AddLocationFilter
 
 class zmq_env:
     def __init__(self):
@@ -33,22 +46,32 @@ def readevent(ctx):
     print(ctx.obj.trdbox.recv_string())
 
     ctx.obj.sfp0.send_string("read")
-    data1 = ctx.obj.sfp0.recv()
+    rawdata = ctx.obj.sfp0.recv()
 
     # ctx.obj.sfp1.send_string("read")
     # data2 = ctx.obj.sfp1.recv()
-    
-    dateTimeObj = datetime.now()
-    timestamp = dateTimeObj.strftime("%d%b%Y-%H%M%S%f")
-    try: 
-        f = open("data/1-chamber_timestamp_test.csv",'a',newline='')
-        writer = csv.writer(f)
-        writer.writerow([timestamp]+[d for d in data1])
 
-        #f.write("\n".join([str(d) for d in data1]))
-        f.close()
-    except:
-        print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
+    #rawdata = self.socket.recv()
+
+    header = TrdboxHeader(rawdata)
+    if header.equipment_type == 0x10:
+        payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
+
+        subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
+
+        return event_t(header.timestamp, tuple([subevent]))
+
+    else:
+        raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
+    
+#    dateTimeObj = datetime.now()
+#    filename = dateTimeObj.strftime("data/daq-1-%d%b%Y-%H%M%S%f.txt")
+#    try: 
+#        f = open(filename,'w')
+#        f.write("\n".join([str(d) for d in data1]))
+#        f.close()
+#    except:
+#        print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
     
     # filename = dateTimeObj.strftime("data/daq-2-%d%b%Y-%H%M%S%f.txt")
     # try:
