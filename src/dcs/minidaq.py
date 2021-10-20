@@ -71,16 +71,16 @@ def readevent(ctx):
 
     else:
         raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
-    
+
 #    dateTimeObj = datetime.now()
 #    filename = dateTimeObj.strftime("data/daq-1-%d%b%Y-%H%M%S%f.txt")
-#    try: 
+#    try:
 #        f = open(filename,'w')
 #        f.write("\n".join([str(d) for d in data1]))
 #        f.close()
 #    except:
 #        print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
-    
+
     # filename = dateTimeObj.strftime("data/daq-2-%d%b%Y-%H%M%S%f.txt")
     # try:
     #     f = open(filename,'w')
