@@ -31,6 +31,14 @@ class zmq_env:
         self.sfp1 = self.context.socket(zmq.REQ)
         self.sfp1.connect('tcp://localhost:7751')
 
+class event_t(NamedTuple):
+	timestamp: datetime
+	subevents: tuple
+
+class subevent_t(NamedTuple):
+	equipment_type: int
+	equipment_id: int
+	payload: np.ndarray
 
 @click.group()
 @click.pass_context
@@ -58,7 +66,7 @@ def readevent(ctx):
         payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
 
         subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
-
+        print(event_t(header.timestamp, tuple([subevent])))
         return event_t(header.timestamp, tuple([subevent]))
 
     else:
