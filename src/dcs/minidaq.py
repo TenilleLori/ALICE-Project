@@ -45,7 +45,6 @@ class subevent_t(NamedTuple):
 def minidaq(ctx):
     ctx.obj = zmq_env()
 
-
 @minidaq.command()
 @click.pass_context
 def readevent(ctx):
@@ -56,22 +55,27 @@ def readevent(ctx):
     ctx.obj.sfp0.send_string("read")
     rawdata = ctx.obj.sfp0.recv()
 
-    # ctx.obj.sfp1.send_string("read")
-    # data2 = ctx.obj.sfp1.recv()
-
-    #rawdata = self.socket.recv()
-
     header = TrdboxHeader(rawdata)
     if header.equipment_type == 0x10:
         payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
 
         subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
-        print(event_t(header.timestamp, tuple([subevent])))
-        return event_t(header.timestamp, tuple([subevent]))
-
+        event =  event_t(header.timestamp, tuple([subevent]))
+	eventToFile(event,len(rawdata))
     else:
         raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
+def eventToFile(event,eventLength):
+    dateTimeObj = datetime.now()
+    timeStr = "%d%b%Y-%H%M%S%f.txt"
+    fileName = dateTimeObj.strftime("data/appledaq-1-%d%b%Y-%H%M%S%f.txt")
+    try:
+        f = open(fileName, 'w')
+        f.write("#EVENT\n#format version:\t 1.0\ntime stamp:\t"+timeStr+"\n#data blocks:\t1\n##DATA SEGMENT\n##sfp:\t0##size:\t",eventLength)
+        f.write("\n".join([hex(d)for d in event.subevents.payload])])
+        f.close()
+    except:
+        print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
 #    dateTimeObj = datetime.now()
 #    filename = dateTimeObj.strftime("data/daq-1-%d%b%Y-%H%M%S%f.txt")
 #    try:
@@ -89,5 +93,5 @@ def readevent(ctx):
     # except:
     #     print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
 
-    print(len(data1))
+    #print(len(data1))
     # print(len(data2))
