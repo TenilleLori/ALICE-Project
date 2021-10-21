@@ -1,8 +1,12 @@
-
+import pickle
+import shutil
 import click
 import zmq
 from datetime import datetime
 
+from subprocess import Popen
+import subprocess
+import os
 import sys
 import numpy as np
 import argparse
@@ -18,6 +22,7 @@ from .logging import ColorFormatter
 from .logging import AddLocationFilter
 
 class zmq_env:
+
     def __init__(self):
 
         self.context = zmq.Context()
@@ -30,7 +35,7 @@ class zmq_env:
 
         self.sfp1 = self.context.socket(zmq.REQ)
         self.sfp1.connect('tcp://localhost:7751')
-
+    
 class event_t(NamedTuple):
 	timestamp: datetime
 	subevents: tuple
@@ -45,6 +50,30 @@ class subevent_t(NamedTuple):
 def minidaq(ctx):
     ctx.obj = zmq_env()
 
+@minidaq.command()
+def setup():
+    print("Setting up processes for minidaq..")
+    
+    commands = [["sudo", "/usr/local/sbin/trdboxd"],["/usr/local/sbin/subevd", "--sfp0-enable=true", "--sfp1-enable=true"]]
+      
+    processes =[subprocess.Popen(cmd) for cmd in commands]   #Starts the processes in the background
+    print("minidaq set up complete.")
+    
+    pids = [p.pid for p in processes]
+    print(pids)
+    with open('proc.pk', 'wb') as f:
+        pickle.dump(pids, f)
+
+@minidaq.command()
+def terminate():
+    with open('proc.pk', 'rb') as f:
+        proc_pids = pickle.load(f)
+    print(proc_pids)
+    os.system("sudo kill -2 "+str(proc_pids[0]))       
+    os.system("kill -2 "+str(proc_pids[1])) #equivalent to ctrl+C on command line
+    os.system("kill -2 "+str(proc_pids[1]))
+
+    print("Trdbox and subevent builders terminated.")
 
 @minidaq.command()
 @click.pass_context
