@@ -69,9 +69,11 @@ def terminate():
     with open('proc.pk', 'rb') as f:
         proc_pids = pickle.load(f)
     print(proc_pids)
-    os.system("sudo kill -2 "+str(proc_pids[0]))       
-    os.system("kill -2 "+str(proc_pids[1])) #equivalent to ctrl+C on command line
-    os.system("kill -2 "+str(proc_pids[1]))
+    os.system("killall -s SIGKILL subevd")
+    os.system("sudo killall trdboxd")
+    #os.system("sudo kill -2 "+str(proc_pids[0]))       
+    #os.system("kill -2"+str(proc_pids[1])) #equivalent to ctrl+C on command line
+    #os.system("kill -2 "+str(proc_pids[1]))
 
     print("Trdbox and subevent builders terminated.")
 
@@ -80,35 +82,40 @@ def terminate():
 @click.pass_context
 def readevent(ctx):
     
-    print("Frank's version - just a check")
     ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
     print(ctx.obj.trdbox.recv_string())
 
     # magicbytes = np.array([0xDA7AFEED],dtype=np.uint32).tobytes()
     # ctx.obj.sfp0.setsockopt(zmq.SUBSCRIBE, magicbytes)
+    chamber_data = []
     ctx.obj.sfp0.send_string("read")
-    rawdata = ctx.obj.sfp0.recv()
+    ctx.obj.sfp1.send_string("read")
+    chamber_data.append(ctx.obj.sfp0.recv())
+    chamber_data.append(ctx.obj.sfp1.recv())
 
-    header = TrdboxHeader(rawdata)
-    if header.equipment_type == 0x10:
-       	payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
-        print(payload)
-       	subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
-        event =  event_t(header.timestamp, tuple([subevent]))
-        print(subevent)
-        print(event.subevents)
-#        lp = LinkParser()
-#        for subevent in event.subevents:
-#            lp.process(subevent.payload)
+    dtObj = datetime.now()
+    chamber_num = 1
+    for rawdata in chamber_data:
+        header = TrdboxHeader(rawdata)
+        if header.equipment_type == 0x10:
+       	    payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
+            print(payload)
+       	    subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
+            event =  event_t(header.timestamp, tuple([subevent]))
+            print(subevent)
+            print(event.subevents)
+#           lp = LinkParser()
+#           for subevent in event.subevents:
+#               lp.process(subevent.payload)
 
-        eventToFile(event,len(payload)) # could be len - 1
-    else:
-       	raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
+            eventToFile(event,len(payload), dtObj, chamber_num) # could be len - 1
+            chamber_num = 2
+        else:
+       	    raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
-def eventToFile(event,eventLength):
-    dateTimeObj = datetime.now()
+def eventToFile(event, eventLength, dateTimeObj, chamber):
     timeStr = dateTimeObj.strftime("%Y-%m-%dT%H:%M:%S.%f")
-    fileName = dateTimeObj.strftime("data/daq-1-%d%b%Y-%H%M%S%f.o32")
+    fileName = dateTimeObj.strftime("data/daq-"+str(chamber)+"-%d%b%Y-%H%M%S%f.o32")
     # try:
     f = open(fileName, 'w')
     f.write("# EVENT\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: 1\n## DATA SEGMENT\n## sfp: 0\n## size: "+str(eventLength)+"\n")
