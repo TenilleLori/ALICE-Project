@@ -85,8 +85,8 @@ def readevent(ctx):
     run_period = time.time() + 60*0.2    #How many minutes you want to run it for
     while (time.time()< run_period):
         #Unblock trigger
-        ctx.obj.trdbox.exec(f"write {su704_pre_base+3} 1")
-        
+        #ctx.obj.trdbox.send_string(f"write {su704_pre_base+3} 1")
+        print("Collecting data..")
         ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
         print(ctx.obj.trdbox.recv_string())
 
@@ -94,8 +94,8 @@ def readevent(ctx):
         # ctx.obj.sfp0.setsockopt(zmq.SUBSCRIBE, magicbytes)
         chamber_data = []
         ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
-        ctx.obj.sfp1.send_string("read") #send request for data from chamber 2
         chamber_data.append(ctx.obj.sfp0.recv())
+        ctx.obj.sfp1.send_string("read")
         chamber_data.append(ctx.obj.sfp1.recv())
 
         dtObj = datetime.now()
@@ -128,7 +128,7 @@ def eventToFile(event, eventLength, dateTimeObj, chamber):
         f.write("# EVENT\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: 2\n## DATA SEGMENT\n## sfp: 0\n## size: "+str(eventLength)+"\n")
         f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
     else: 
-        f.write("## DATA SEGMENT\n## sfp: 1\n## size: "+str(eventLength)+"\n")
+        f.write("\n## DATA SEGMENT\n## sfp: 1\n## size: "+str(eventLength)+"\n")
         f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
     
     f.close()
