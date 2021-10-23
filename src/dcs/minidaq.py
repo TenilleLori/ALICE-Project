@@ -84,6 +84,9 @@ def terminate():
 def readevent(ctx):
     run_period = time.time() + 60*0.2    #How many minutes you want to run it for
     while (time.time()< run_period):
+        #Unblock trigger
+        ctx.obj.trdbox.exec(f"write {su704_pre_base+3} 1")
+        
         ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
         print(ctx.obj.trdbox.recv_string())
 
@@ -108,7 +111,7 @@ def readevent(ctx):
                 print(event.subevents)
 #               lp = LinkParser()
 #               for subevent in event.subevents:
-#               lp.process(subevent.payload)
+#                   lp.process(subevent.payload)
 
                 eventToFile(event,len(payload), dtObj, chamber_num) # could be len - 1
                 chamber_num = 2
