@@ -60,16 +60,16 @@ def setup():
     processes =[subprocess.Popen(cmd) for cmd in commands]   #Starts the processes in the background
     print("minidaq set up complete.")
     
-    pids = [p.pid for p in processes]
-    print(pids)
-    with open('proc.pk', 'wb') as f:
-        pickle.dump(pids, f)
+    #pids = [p.pid for p in processes]
+    #print(pids)
+    #with open('proc.pk', 'wb') as f:
+    #    pickle.dump(pids, f)
 
 @minidaq.command()
 def terminate():
-    with open('proc.pk', 'rb') as f:
-        proc_pids = pickle.load(f)
-    print(proc_pids)
+    #with open('proc.pk', 'rb') as f:
+    #    proc_pids = pickle.load(f)
+    #print(proc_pids)
     os.system("killall -s SIGKILL subevd")
     os.system("sudo killall trdboxd")
     #os.system("sudo kill -2 "+str(proc_pids[0]))       
