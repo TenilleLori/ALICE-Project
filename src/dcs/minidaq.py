@@ -1,4 +1,5 @@
 import pickle
+import time
 import shutil
 import click
 import zmq
@@ -59,16 +60,16 @@ def setup():
     processes =[subprocess.Popen(cmd) for cmd in commands]   #Starts the processes in the background
     print("minidaq set up complete.")
     
-    pids = [p.pid for p in processes]
-    print(pids)
-    with open('proc.pk', 'wb') as f:
-        pickle.dump(pids, f)
+    #pids = [p.pid for p in processes]
+    #print(pids)
+    #with open('proc.pk', 'wb') as f:
+    #    pickle.dump(pids, f)
 
 @minidaq.command()
 def terminate():
-    with open('proc.pk', 'rb') as f:
-        proc_pids = pickle.load(f)
-    print(proc_pids)
+    #with open('proc.pk', 'rb') as f:
+    #    proc_pids = pickle.load(f)
+    #print(proc_pids)
     os.system("killall -s SIGKILL subevd")
     os.system("sudo killall trdboxd")
     #os.system("sudo kill -2 "+str(proc_pids[0]))       
@@ -81,46 +82,57 @@ def terminate():
 @minidaq.command()
 @click.pass_context
 def readevent(ctx):
-    
-    ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
-    print(ctx.obj.trdbox.recv_string())
+    run_period = time.time() + 60*0.2    #How many minutes you want to run it for
+    while (time.time()< run_period):
+        #Unblock trigger
+        #ctx.obj.trdbox.send_string(f"write {su704_pre_base+3} 1")
+        print("Collecting data..")
+        ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
+        print(ctx.obj.trdbox.recv_string())
 
-    # magicbytes = np.array([0xDA7AFEED],dtype=np.uint32).tobytes()
-    # ctx.obj.sfp0.setsockopt(zmq.SUBSCRIBE, magicbytes)
-    chamber_data = []
-    ctx.obj.sfp0.send_string("read")
-    ctx.obj.sfp1.send_string("read")
-    chamber_data.append(ctx.obj.sfp0.recv())
-    chamber_data.append(ctx.obj.sfp1.recv())
+        # magicbytes = np.array([0xDA7AFEED],dtype=np.uint32).tobytes()
+        # ctx.obj.sfp0.setsockopt(zmq.SUBSCRIBE, magicbytes)
+        chamber_data = []
+        ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
+        chamber_data.append(ctx.obj.sfp0.recv())
+        ctx.obj.sfp1.send_string("read")
+        chamber_data.append(ctx.obj.sfp1.recv())
 
-    dtObj = datetime.now()
-    chamber_num = 1
-    for rawdata in chamber_data:
-        header = TrdboxHeader(rawdata)
-        if header.equipment_type == 0x10:
-       	    payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
-            print(payload)
-       	    subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
-            event =  event_t(header.timestamp, tuple([subevent]))
-            print(subevent)
-            print(event.subevents)
-#           lp = LinkParser()
-#           for subevent in event.subevents:
-#               lp.process(subevent.payload)
+        dtObj = datetime.now()
+        chamber_num = 1
+        for rawdata in chamber_data:
+            header = TrdboxHeader(rawdata)
+            if header.equipment_type == 0x10:
+       	        payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
+                print(payload)
+       	        subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
+                event =  event_t(header.timestamp, tuple([subevent]))
+                print(subevent)
+                print(event.subevents)
+#               lp = LinkParser()
+#               for subevent in event.subevents:
+#                   lp.process(subevent.payload)
 
-            eventToFile(event,len(payload), dtObj, chamber_num) # could be len - 1
-            chamber_num = 2
-        else:
-       	    raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
+                eventToFile(event,len(payload), dtObj, chamber_num) # could be len - 1
+                chamber_num = 2
+            else:
+       	        raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
 def eventToFile(event, eventLength, dateTimeObj, chamber):
     timeStr = dateTimeObj.strftime("%Y-%m-%dT%H:%M:%S.%f")
-    fileName = dateTimeObj.strftime("data/daq-"+str(chamber)+"-%d%b%Y-%H%M%S%f.o32")
+    fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f.o32")
     # try:
-    f = open(fileName, 'w')
-    f.write("# EVENT\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: 1\n## DATA SEGMENT\n## sfp: 0\n## size: "+str(eventLength)+"\n")
-    f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
+    f = open(fileName, 'a')
+    #Different Header for each chamber
+    if (chamber==1):
+        f.write("# EVENT\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: 2\n## DATA SEGMENT\n## sfp: 0\n## size: "+str(eventLength)+"\n")
+        f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
+    else: 
+        f.write("\n## DATA SEGMENT\n## sfp: 1\n## size: "+str(eventLength)+"\n")
+        f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
+    
     f.close()
+
     # except:
        	# print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
 #    dateTimeObj = datetime.now()
