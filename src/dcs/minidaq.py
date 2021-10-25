@@ -59,64 +59,57 @@ def setup():
       
     processes =[subprocess.Popen(cmd) for cmd in commands]   #Starts the processes in the background
     print("minidaq set up complete.")
-    
-    #pids = [p.pid for p in processes]
-    #print(pids)
-    #with open('proc.pk', 'wb') as f:
-    #    pickle.dump(pids, f)
 
 @minidaq.command()
 def terminate():
-    #with open('proc.pk', 'rb') as f:
-    #    proc_pids = pickle.load(f)
-    #print(proc_pids)
     os.system("killall -s SIGKILL subevd")
     os.system("sudo killall trdboxd")
-    #os.system("sudo kill -2 "+str(proc_pids[0]))       
-    #os.system("kill -2"+str(proc_pids[1])) #equivalent to ctrl+C on command line
-    #os.system("kill -2 "+str(proc_pids[1]))
-
+   
     print("Trdbox and subevent builders terminated.")
 
+@minidaq.command()
+@click.pass.context
+def background_read(ctx):
+    run_period = time.time() + 60*0.5   #How many minutes you want to run it for
+    while (time.time() < run_period):
+        readevent(ctx)   #TODO: not sure if this works, just skeleton    
+
+@minidaq.command()
+@click.pass.context
+def trigger_read(ctx):
+    run_period = time.time() + 60*0.5 #How long you want to search for triggers for
+    #TODO: the rest of this xD
 
 @minidaq.command()
 @click.pass_context
 def readevent(ctx):
-    run_period = time.time() + 60*0.2    #How many minutes you want to run it for
-    while (time.time()< run_period):
-        #Unblock trigger
-        #ctx.obj.trdbox.send_string(f"write {su704_pre_base+3} 1")
-        print("Collecting data..")
-        ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
-        print(ctx.obj.trdbox.recv_string())
+    #TODO: Unblock trigger before each readevent
+    #ctx.obj.trdbox.send_string(f"write {su704_pre_base+3} 1")
+    print("Collecting data..")
+    ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
+    print(ctx.obj.trdbox.recv_string())
+       
+    chamber_data = []
+    ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
+    chamber_data.append(ctx.obj.sfp0.recv())
+    ctx.obj.sfp1.send_string("read")
+    chamber_data.append(ctx.obj.sfp1.recv())
 
-        # magicbytes = np.array([0xDA7AFEED],dtype=np.uint32).tobytes()
-        # ctx.obj.sfp0.setsockopt(zmq.SUBSCRIBE, magicbytes)
-        chamber_data = []
-        ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
-        chamber_data.append(ctx.obj.sfp0.recv())
-        ctx.obj.sfp1.send_string("read")
-        chamber_data.append(ctx.obj.sfp1.recv())
-
-        dtObj = datetime.now()
-        chamber_num = 1
-        for rawdata in chamber_data:
-            header = TrdboxHeader(rawdata)
-            if header.equipment_type == 0x10:
-       	        payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
-                print(payload)
-       	        subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
-                event =  event_t(header.timestamp, tuple([subevent]))
-                print(subevent)
-                print(event.subevents)
-#               lp = LinkParser()
-#               for subevent in event.subevents:
-#                   lp.process(subevent.payload)
-
-                eventToFile(event,len(payload), dtObj, chamber_num) # could be len - 1
-                chamber_num = 2
-            else:
-       	        raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
+    dtObj = datetime.now()
+    chamber_num = 1
+    for rawdata in chamber_data:
+        header = TrdboxHeader(rawdata)
+        if header.equipment_type == 0x10:
+   	    payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
+            print(payload)
+       	    subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
+            event =  event_t(header.timestamp, tuple([subevent]))
+            print(subevent)
+            print(event.subevents)
+            eventToFile(event,len(payload), dtObj, chamber_num) # could be len - 1
+            chamber_num = 2
+        else:
+       	    raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
 def eventToFile(event, eventLength, dateTimeObj, chamber):
     timeStr = dateTimeObj.strftime("%Y-%m-%dT%H:%M:%S.%f")
