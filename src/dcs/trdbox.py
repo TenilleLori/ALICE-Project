@@ -92,7 +92,7 @@ def sfp(ctx, sfp, cmd):
 @trdbox.command()
 @click.argument('sfp')
 @click.pass_context
-def dump(ctx, sfp, cmd):
+def dump(ctx, sfp):
     ctx.obj.exec(f"dump sfp{sfp}")
 
 @trdbox.command()
