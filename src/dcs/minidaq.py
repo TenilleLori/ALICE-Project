@@ -91,9 +91,10 @@ def readevent(ctx):
        
     chamber_data = []
     ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
+    ctx.obj.sfp1.send_string("read")
     chamber_data.append(ctx.obj.sfp0.recv())
-    #ctx.obj.sfp1.send_string("read")
-    #chamber_data.append(ctx.obj.sfp1.recv())
+   # ctx.obj.sfp1.send_string("read")
+    chamber_data.append(ctx.obj.sfp1.recv())
 
     dtObj = datetime.now()
     chamber_num = 1
@@ -114,6 +115,7 @@ def readevent(ctx):
 def eventToFile(event, eventLength, dateTimeObj, chamber):
     timeStr = dateTimeObj.strftime("%Y-%m-%dT%H:%M:%S.%f")
     fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f.o32")
+    print(fileName)
     # try:
     f = open(fileName, 'a')
     #Different Header for each chamber
