@@ -59,7 +59,7 @@ def status(ctx):
 
 @trdbox.command()
 @click.pass_context
-def unblock(ctx, ch, thresh):
+def unblock(ctx):
     ctx.obj.exec(f"write {su704_pre_base+3} 1")
 
 @trdbox.command()
@@ -90,6 +90,12 @@ def sfp(ctx, sfp, cmd):
     ctx.obj.exec(f"sfp{sfp} {cmd}")
 
 @trdbox.command()
+@click.argument('sfp')
+@click.pass_context
+def dump(ctx, sfp):
+    ctx.obj.exec(f"dump sfp{sfp}")
+
+@trdbox.command()
 @click.argument('address', callback=lambda c,p,x: int(x,0))
 @click.pass_context
 def read(ctx, address):
@@ -101,4 +107,4 @@ def read(ctx, address):
 @click.argument('data', callback=lambda c,p,x: int(x,0))
 @click.pass_context
 def write(ctx, address, data):
-    ctx.obj.exec(f"write {address} {cmd}")
+    ctx.obj.exec(f"write {address} {data}")
