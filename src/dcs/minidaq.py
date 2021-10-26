@@ -68,14 +68,14 @@ def terminate():
     print("Trdbox and subevent builders terminated.")
 
 @minidaq.command()
-@click.pass.context
+@click.pass_context
 def background_read(ctx):
     run_period = time.time() + 60*0.5   #How many minutes you want to run it for
     while (time.time() < run_period):
         readevent(ctx)   #TODO: not sure if this works, just skeleton    
 
 @minidaq.command()
-@click.pass.context
+@click.pass_context
 def trigger_read(ctx):
     run_period = time.time() + 60*0.5 #How long you want to search for triggers for
     #TODO: the rest of this xD
@@ -92,15 +92,15 @@ def readevent(ctx):
     chamber_data = []
     ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
     chamber_data.append(ctx.obj.sfp0.recv())
-    ctx.obj.sfp1.send_string("read")
-    chamber_data.append(ctx.obj.sfp1.recv())
+    #ctx.obj.sfp1.send_string("read")
+    #chamber_data.append(ctx.obj.sfp1.recv())
 
     dtObj = datetime.now()
     chamber_num = 1
     for rawdata in chamber_data:
         header = TrdboxHeader(rawdata)
         if header.equipment_type == 0x10:
-   	    payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
+            payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
             print(payload)
        	    subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
             event =  event_t(header.timestamp, tuple([subevent]))
