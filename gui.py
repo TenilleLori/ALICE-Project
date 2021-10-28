@@ -4,6 +4,35 @@ from functools import partial
 import zmq
 from zmq import ssh
 
+class inputGUI(Tk):
+
+    argsEntry = None
+    tempInput = ""
+
+    def __init__(self, caption, command, tempInput):
+        super().__init__()
+        self.title("Add Input to " + caption.get())
+
+        frame = Frame(self)
+        frame.grid()
+
+        self.tempInput = tempInput
+
+        Label(frame, text="Add args to " + str(command) + ":").grid(row=0, column=0)
+        self.argsEntry = Entry(frame)
+        self.argsEntry.grid(row=0, column=1)
+
+        Button(frame, text="Add Command", command=self.add).grid(row=1, column=0)
+        Button(frame, text="Cancel", command=self.cancel).grid(row=1, column=1)
+
+    def add(self):
+        self.tempInput.set(self.argsEntry.get())
+        self.destroy()
+    
+    def cancel(self):
+        self.destroy()
+
+
 class configGUI(Tk):
 
     btnNum = 0
@@ -12,14 +41,18 @@ class configGUI(Tk):
     btnCommands = None
     commandEntry = None
     captionEntry = None
+    inputCheckbox = None
+    i = 0
 
     def __init__(self, btnNum, btnCaptions, btnCommands):
         super().__init__()
-        self.title("Configure Button " + str(btnNum))
+        self.title("Configure Button " + str(btnNum+1))
 
         self.btnNum = btnNum
         self.btnCaptions = btnCaptions
         self.btnCommands = btnCommands
+
+        self.i = IntVar()
         
         frame = Frame(self)
         frame.grid()
@@ -32,12 +65,15 @@ class configGUI(Tk):
         self.commandEntry = Entry(frame)
         self.commandEntry.grid(row=1, column=1)
 
-        Button(frame, text="Save", command=self.save).grid(row=2, column=0)
-        Button(frame, text="Cancel", command=self.cancel).grid(row=2, column=1)
+        self.inputCheckbox = Checkbutton(frame, text="Require Input for this Command?", variable=self.i)
+        self.inputCheckbox.grid(row=2, column=0, columnspan=2)
+
+        Button(frame, text="Save", command=self.save).grid(row=3, column=0)
+        Button(frame, text="Cancel", command=self.cancel).grid(row=3, column=1)
 
     def save(self):
         self.btnCaptions[self.btnNum].set(self.captionEntry.get())
-        self.btnCommands[self.btnNum] = self.commandEntry.get()
+        self.btnCommands[self.btnNum] = [self.commandEntry.get(), self.i.get()]
         self.destroy()
 
     def cancel(self):
@@ -53,6 +89,7 @@ class mainGUI(Tk):
     btnCaptions = []
     btnCommands = []
     addedCommands = []
+    tempInput = ""
 
     socket = None
 
@@ -67,6 +104,7 @@ class mainGUI(Tk):
         super().__init__()
 
         self.socket = socket
+        self.tempInput = StringVar()
 
         self.title("TRD Control GUI")
 
@@ -132,8 +170,18 @@ class mainGUI(Tk):
         self.exeBtn.grid(row=self.numBtns+1, column=2)
 
     def btnAction(self, btnNum):
-        self.addedCommands.append(self.btnCommands[btnNum])
-        self.updateText()
+        if self.btnCommands[btnNum] == "":
+            return
+
+        if self.btnCommands[btnNum][1] == 0:
+            argsGUI = inputGUI(self.btnCaptions[btnNum], self.btnCommands[btnNum][0], self.tempInput)
+            argsGUI.wait_window(argsGUI)
+            self.addedCommands.append(self.btnCommands[btnNum][0] + " " + self.tempInput.get())
+            self.updateText()
+        
+        else:
+            self.addedCommands.append(self.btnCommands[btnNum])
+            self.updateText()
 
     def configure(self, btnNum):
         confScreen = configGUI(btnNum, self.btnCaptions, self.btnCommands)
@@ -145,7 +193,7 @@ class mainGUI(Tk):
     def updateText(self):
         self.text.delete("1.0", END)
         for i in range(len(self.addedCommands)):
-            self.text.insert(END, self.addedCommands[i] + "\n")
+            self.text.insert(INSERT, self.addedCommands[i] + "\n")
 
     def execute(self):
         for i in range(len(self.addedCommands)):
