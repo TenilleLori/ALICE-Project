@@ -79,8 +79,6 @@ class configGUI(Tk):
     def cancel(self):
         self.destroy()
 
-
-
 class mainGUI(Tk):
 
     numBtns = 5
@@ -98,6 +96,8 @@ class mainGUI(Tk):
     text = None
     addBtn = None
     remBtn = None
+    rmvEntry = None
+    rmvBtn = None
     exeBtn = None
 
     def __init__(self, socket):
@@ -124,20 +124,17 @@ class mainGUI(Tk):
             self.confBtns[i].grid(row=i, column=1)
 
         self.addBtn = Button(self.frame, text="Add Button", command=self.newBtn)
-        self.addBtn.grid(row=self.numBtns, column=0)
         self.remBtn = Button(self.frame, text="Remove Button", command=self.popBtn)
-        self.remBtn.grid(row=self.numBtns, column=1)
 
         self.entry = Entry(self.frame)
-        self.entry.grid(row=0, column=2, columnspan=2)
         btnAddCustom = Button(self.frame, text="Add Custom Command", command=self.btnCustom)
-        btnAddCustom.grid(row=0, column=4)
-
         self.text = Text(self.frame)
-        self.text.grid(row=1, column=2, rowspan=self.numBtns, columnspan=3)
-
         self.exeBtn = Button(self.frame, text="Execute Command Sequence", command=self.execute)
-        self.exeBtn.grid(row=self.numBtns+1, column=2)
+
+        self.rmvEntry = Entry(self.frame)
+        self.rmvBtn = Button(self.frame, text="Remove Command", command=self.remove)
+
+        self.align()
 
     def newBtn(self):
         self.numBtns += 1
@@ -153,10 +150,7 @@ class mainGUI(Tk):
         self.confBtns.append(Button(self.frame, text="Configure", command=confPart))
         self.confBtns[self.numBtns-1].grid(row=self.numBtns-1, column=1)
 
-        self.addBtn.grid(row=self.numBtns, column=0)
-        self.remBtn.grid(row=self.numBtns, column=1)
-        self.text.grid(row=1, column=2, rowspan=self.numBtns, columnspan=3)
-        self.exeBtn.grid(row=self.numBtns+1, column=2)
+        self.align()
 
     def popBtn(self):
         self.numBtns -= 1
@@ -164,10 +158,7 @@ class mainGUI(Tk):
         self.actnBtns.pop(self.numBtns)
         self.confBtns[self.numBtns].destroy()
         self.confBtns.pop(self.numBtns)
-        self.addBtn.grid(row=self.numBtns, column=0)
-        self.remBtn.grid(row=self.numBtns, column=1)
-        self.text.grid(row=1, column=2, rowspan=self.numBtns, columnspan=3)
-        self.exeBtn.grid(row=self.numBtns+1, column=2)
+        self.align()
 
     def btnAction(self, btnNum):
         if self.btnCommands[btnNum] == "":
@@ -193,12 +184,27 @@ class mainGUI(Tk):
     def updateText(self):
         self.text.delete("1.0", END)
         for i in range(len(self.addedCommands)):
-            self.text.insert(INSERT, self.addedCommands[i] + "\n")
+            self.text.insert(INSERT, str(i+1) + ": " + self.addedCommands[i] + "\n")
+
+    def align(self):
+        self.addBtn.grid(row=self.numBtns, column=0)
+        self.remBtn.grid(row=self.numBtns, column=1)
+        self.text.grid(row=1, column=2, rowspan=self.numBtns, columnspan=3)
+        self.rmvEntry.grid(row=self.numBtns+1, column=2)
+        self.rmvBtn.grid(row=self.numBtns+1, column=3)
+        self.exeBtn.grid(row=self.numBtns+2, column=2, columnspan=2)
 
     def execute(self):
         for i in range(len(self.addedCommands)):
             self.socket.send_string(self.addedCommands[i])
             print(self.socket.recv())
+
+    def remove(self):
+        cmdNum = int(self.rmvEntry.get())
+        print(self.addedCommands)
+        self.addedCommands.pop(cmdNum-1)
+        print(self.addedCommands)
+        self.updateText()
 
 if __name__=="__main__":
     ctx = zmq.Context()
