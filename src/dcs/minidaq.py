@@ -15,6 +15,7 @@ import argparse
 from struct import unpack
 import time
 import logging
+import dcs.oscilloscopeRead.scopeRead as scopeRead
 from typing import NamedTuple
 from datetime import datetime
 
@@ -68,20 +69,25 @@ def terminate():
     print("Trdbox and subevent builders terminated.")
 
 @minidaq.command()
-@click.option('--n_events','-n', default=10, help='Number of background events you want to read.')
+@click.option('--n_events','-n', default=5, help='Number of background events you want to read.')
 @click.pass_context
 def background_read(ctx, n_events):
+    # Including oscilloscope data in the .o32 file
+    scopeReader = scopeRead.Reader("ttyACM2")
+    
     dt = datetime.now()
     for i in range(n_events):
         print("Reading.."+str(i))
         spacing = 2
         sleepTime = np.random.exponential(scale = spacing)
         time.sleep(sleepTime)
-        ctx.invoke(readevent, timestamp=dt, info='background')
+        ctx.invoke(readevent, timestamp=dt, info='background', reader = scopeReader)
 
 @minidaq.command()
 @click.pass_context
 def trigger_read(ctx, n_events=5):
+    # Including oscilloscope data in the .o32 file
+    scopeReader = scopeRead.Reader("ttyACM2")
     #run_period = time.time() + 60*0.5 #How long you want to search for triggers for
     trig_count_1 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
     trig_count_2 = 0
@@ -93,8 +99,8 @@ def trigger_read(ctx, n_events=5):
         if trig_count_2 != trig_count_1:
             i += 1
             print(i) # Just for monitoring purposes
-
-            readevent(ctx,dtObj= timestamp, info="trigger")
+            
+            readevent(ctx,dtObj= timestamp, info="trigger", reader = scopeReader)
             trig_count_1 = trig_count_2
         else:
             pass
@@ -102,7 +108,7 @@ def trigger_read(ctx, n_events=5):
 @click.argument('timestamp', type=click.DateTime() , default=datetime.now())
 @click.argument('info',default='')
 @click.pass_context
-def readevent(ctx, timestamp, info):
+def readevent(ctx, timestamp, info, reader = None, saveScope = True):
     #Unblock trdbox and dump chamber buffers
     os.system("trdbox unblock")
     os.system("trdbox dump 0 >/dev/null 2>&1")
@@ -115,9 +121,7 @@ def readevent(ctx, timestamp, info):
     print(ctx.obj.trdbox.recv_string())
     
     # Including oscilloscope data in the .o32 file
-    #scopeReader = scoperead.Reader()
-    #waveforms = scopeReader.getdata()
-    
+    waveforms = reader.getData()
     chamber_data = []
     ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
     ctx.obj.sfp1.send_string("read")
@@ -129,30 +133,49 @@ def readevent(ctx, timestamp, info):
         header = TrdboxHeader(rawdata)
         if header.equipment_type == 0x10:
             payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
-            print(payload)
        	    subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
             event =  event_t(header.timestamp, tuple([subevent]))
-            print(subevent)
-            print(event.subevents)
             eventToFile(event,len(payload), timestamp, chamber_num, info) # could be len - 1
             chamber_num = 2
         else:
        	    raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
+    if header.equipment_type == 0x10 and saveScope == True:
+        scopeToFile(waveforms,timestamp,info)
+    else:
+        raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
 def eventToFile(event, eventLength, dateTimeObj, chamber, info):
     currentTime = datetime.now()
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
     fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f-"+info+".o32")
-    print(fileName)
-    # try:
-    f = open(fileName, 'a')
-    #Different Header for each chamber
-    if (chamber==1):
-        f.write("# EVENT\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: 2\n## DATA SEGMENT\n## sfp: 0\n## size: "+str(eventLength)+"\n")
-        f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
-    else: 
-        f.write("\n## DATA SEGMENT\n## sfp: 1\n## size: "+str(eventLength)+"\n")
-        f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
-        f.write("\n")
+    try:
+        f = open(fileName, 'a')
+        #Different Header for each chamber
+        if (chamber==1):
+            f.write("# EVENT\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: 2\n## DATA SEGMENT\n## sfp: 0\n## size: "+str(eventLength)+"\n")
+            f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
+        else: 
+            f.write("\n## DATA SEGMENT\n## sfp: 1\n## size: "+str(eventLength)+"\n")
+            f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
+            f.write("\n")
     
+        f.close()
+    except:
+        print("Error writing to file, please make sure there is a data folder in the directory you are running this command in")
+
+def scopeToFile(waveforms, dateTimeObj, info):
+    currentTime = datetime.now()
+    #print(waveforms)
+    timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
+    fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f-"+info+".o32")
+    f = open(fileName, 'a')
+    for i in range(len(waveforms)):
+        f.write("# WAVEFORM: " + str(i)+"\n# size: " + str(len(waveforms[i])) + "\n")
+        f.write("\n".join([str(d) for d in waveforms[i]]))
+        f.write("\n")
     f.close()
+    #print("Error writing to file, please make sure there is a data folder in the directory you are running this command in")
+
+
+
+
