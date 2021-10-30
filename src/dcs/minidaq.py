@@ -84,37 +84,39 @@ def background_read(ctx, n_events):
         ctx.invoke(readevent, timestamp=dt, info='background', reader = scopeReader)
 
 @minidaq.command()
+@click.option('--n_events','-n', default=5, help='Number of triggered events you want to read.')
 @click.pass_context
-def trigger_read(ctx, n_events=5):
-    # Including oscilloscope data in the .o32 file
+
+def trigger_read(ctx, n_events):
     scopeReader = scopeRead.Reader("ttyACM2")
     #run_period = time.time() + 60*0.5 #How long you want to search for triggers for
     trig_count_1 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
+    os.system("trdbox unblock")
     trig_count_2 = 0
     i = 0
-    timestamp = datetime.now()
-    while i <= (n_events):
+    dt = datetime.now()
+    while i < (n_events):
         trig_count_2 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
 
         if trig_count_2 != trig_count_1:
             i += 1
-            print(i) # Just for monitoring purposes
-            
-            readevent(ctx,dtObj= timestamp, info="trigger", reader = scopeReader)
+            print("Event triggered.."+str(i)) # Just for monitoring purposes
+            ctx.invoke(readevent, timestamp=dt, info="trigger",reader=scopeReader)
             trig_count_1 = trig_count_2
+            os.system("trdbox unblock")
         else:
             pass
 @minidaq.command()
 @click.argument('timestamp', type=click.DateTime() , default=datetime.now())
 @click.argument('info',default='')
 @click.pass_context
-def readevent(ctx, timestamp, info, reader = None, saveScope = True):
+def readevent(ctx, timestamp, info, reader = None, saveScope = False):
     #Unblock trdbox and dump chamber buffers
     os.system("trdbox unblock")
     os.system("trdbox dump 0 >/dev/null 2>&1")
-    os.system("trdbox dump 0")       #dump twice as sometimes there are errors
+    os.system("trdbox dump 0 >/dev/null 2>&1")       #dump twice as sometimes there are errors
     os.system("trdbox dump 1 >/dev/null 2>&1")
-    os.system("trdbox dump 1")    
+    os.system("trdbox dump 1 >/dev/null 2>&1")    
 
     print("Collecting data..")
     ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger

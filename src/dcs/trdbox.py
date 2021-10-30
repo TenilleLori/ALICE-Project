@@ -98,13 +98,14 @@ def dump(ctx, sfp):
 @trdbox.command()
 @click.argument('address', callback=lambda c,p,x: int(x,0))
 @click.pass_context
-def read(ctx, address):
+def reg_read(ctx, address):
     rd = int(ctx.obj.exec(f"read {address}"),16)
+    print(rd)
     print(f"Read from 0x{address:04x}: {rd} = 0x{rd:08x}")
 
 @trdbox.command()
 @click.argument('address', callback=lambda c,p,x: int(x,0))
 @click.argument('data', callback=lambda c,p,x: int(x,0))
 @click.pass_context
-def write(ctx, address, data):
+def reg_write(ctx, address, data):
     ctx.obj.exec(f"write {address} {data}")
