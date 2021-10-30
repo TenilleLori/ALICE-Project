@@ -44,6 +44,9 @@ def evdump(source, loglevel, suppress, quiet, skip_events):
     for evno,event in enumerate(reader):
         if evno<skip_events:
             continue
-
-        for subevent in event.subevents:
-            lp.process(subevent.payload)
+        if not event[0]:
+            for subevent in event.subevents:
+                lp.process(subevent.payload)
+        else:
+            for wave in event.waveforms:
+                print(subevent.payload)

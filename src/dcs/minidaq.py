@@ -101,7 +101,7 @@ def trigger_read(ctx, n_events):
         if trig_count_2 != trig_count_1:
             i += 1
             print("Event triggered.."+str(i)) # Just for monitoring purposes
-            ctx.invoke(readevent, timestamp=dt, info="trigger",reader=scopeReader)
+            ctx.invoke(readevent, timestamp=dt, info="trigger",reader=scopeReader, savescope=True)
             trig_count_1 = trig_count_2
             os.system("trdbox unblock")
         else:
@@ -109,8 +109,9 @@ def trigger_read(ctx, n_events):
 @minidaq.command()
 @click.argument('timestamp', type=click.DateTime() , default=datetime.now())
 @click.argument('info',default='')
+@click.option('--saveScope', '-s', is_flag=True)
 @click.pass_context
-def readevent(ctx, timestamp, info, reader = None, saveScope = False):
+def readevent(ctx, timestamp, info, reader = None, savescope = False):
     #Unblock trdbox and dump chamber buffers
     os.system("trdbox unblock")
     os.system("trdbox dump 0 >/dev/null 2>&1")
@@ -140,11 +141,13 @@ def readevent(ctx, timestamp, info, reader = None, saveScope = False):
             eventToFile(event,len(payload), timestamp, chamber_num, info) # could be len - 1
             chamber_num = 2
         else:
-       	    raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
-    if header.equipment_type == 0x10 and saveScope == True:
+            pass
+       	    # raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
+    if header.equipment_type == 0x10 and savescope == True:
         scopeToFile(waveforms,timestamp,info)
     else:
-        raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
+        pass
+        # raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
 def eventToFile(event, eventLength, dateTimeObj, chamber, info):
     currentTime = datetime.now()
@@ -171,8 +174,9 @@ def scopeToFile(waveforms, dateTimeObj, info):
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
     fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f-"+info+".o32")
     f = open(fileName, 'a')
+    f.write("# OSCILLOSCOPE\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: "+str(len(waveforms))+"\n")
     for i in range(len(waveforms)):
-        f.write("# WAVEFORM: " + str(i)+"\n# size: " + str(len(waveforms[i])) + "\n")
+        f.write("## WAVE\n## waveform: " + str(i)+"\n## size: " + str(len(waveforms[i])) + "\n")
         f.write("\n".join([str(d) for d in waveforms[i]]))
         f.write("\n")
     f.close()
