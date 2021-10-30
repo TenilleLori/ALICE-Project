@@ -68,16 +68,17 @@ def terminate():
     print("Trdbox and subevent builders terminated.")
 
 @minidaq.command()
+@click.option('--n_events','-n', default=10, help='Number of background events you want to read.')
 @click.pass_context
-def background_read(ctx):
-    for i in range(100):
+def background_read(ctx, n_events):
+    dt = datetime.now()
+    for i in range(n_events):
+        print("Reading.."+str(i))
         spacing = 2
         sleepTime = np.random.exponential(scale = spacing)
         time.sleep(sleepTime)
-        readevent(ctx, info = "backgound_" + str(spacing) + "s_spacing_exponential")
-    #run_period = time.time() + 60*0.5   #How many minutes you want to run it for
-    #while (time.time() < run_period):
-    #    readevent(ctx)   #TODO: not sure if this works, just skeleton    
+        ctx.invoke(readevent, timestamp=dt, info='background')
+    
 
 @minidaq.command()
 @click.pass_context
@@ -99,14 +100,16 @@ def trigger_read(ctx, n_events=5):
         else:
             pass
 @minidaq.command()
+@click.argument('timestamp', type=click.DateTime() , default=datetime.now())
+@click.argument('info',default='')
 @click.pass_context
-def readevent(ctx, dtObj = datetime.now(), info=""):
+def readevent(ctx, timestamp, info):
     #Unblock trdbox and dump chamber buffers
     os.system("trdbox unblock")
-    os.system("trd dump 0")
-    os.system("trd dump 0")       #dump twice as sometimes there are errors
-    os.system("trd dump 1")
-    os.system("trd dump 1")    
+    os.system("trdbox dump 0 >/dev/null 2>&1")
+    os.system("trdbox dump 0")       #dump twice as sometimes there are errors
+    os.system("trdbox dump 1 >/dev/null 2>&1")
+    os.system("trdbox dump 1")    
 
     print("Collecting data..")
     ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
@@ -128,13 +131,14 @@ def readevent(ctx, dtObj = datetime.now(), info=""):
             event =  event_t(header.timestamp, tuple([subevent]))
             print(subevent)
             print(event.subevents)
-            eventToFile(event,len(payload), dtObj, chamber_num, info) # could be len - 1
+            eventToFile(event,len(payload), timestamp, chamber_num, info) # could be len - 1
             chamber_num = 2
         else:
        	    raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
 def eventToFile(event, eventLength, dateTimeObj, chamber, info):
-    timeStr = dateTimeObj.strftime("%Y-%m-%dT%H:%M:%S.%f")
+    currentTime = datetime.now()
+    timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
     fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f-"+info+".o32")
     print(fileName)
     # try:
@@ -146,5 +150,6 @@ def eventToFile(event, eventLength, dateTimeObj, chamber, info):
     else: 
         f.write("\n## DATA SEGMENT\n## sfp: 1\n## size: "+str(eventLength)+"\n")
         f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
+        f.write("\n")
     
     f.close()
