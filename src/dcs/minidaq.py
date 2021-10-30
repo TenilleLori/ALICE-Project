@@ -81,22 +81,25 @@ def background_read(ctx, n_events):
     
 
 @minidaq.command()
+@click.option('--n_events','-n', default=5, help='Number of triggered events you want to read.')
 @click.pass_context
-def trigger_read(ctx, n_events=5):
+def trigger_read(ctx, n_events):
     #run_period = time.time() + 60*0.5 #How long you want to search for triggers for
     trig_count_1 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
+    os.system("trdbox unblock")
     trig_count_2 = 0
     i = 0
-    timestamp = datetime.now()
+    dt = datetime.now()
     while i <= (n_events):
         trig_count_2 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
 
         if trig_count_2 != trig_count_1:
             i += 1
-            print(i) # Just for monitoring purposes
+            print("Event triggered.."+str(i)) # Just for monitoring purposes
 
-            readevent(ctx,dtObj= timestamp, info="trigger")
+            ctx.invoke(readevent, timestamp=dt, info="trigger")
             trig_count_1 = trig_count_2
+            os.system("trdbox unblock")
         else:
             pass
 @minidaq.command()
