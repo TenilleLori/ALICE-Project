@@ -76,15 +76,33 @@ def background_read(ctx):
 
 @minidaq.command()
 @click.pass_context
-def trigger_read(ctx):
-    run_period = time.time() + 60*0.5 #How long you want to search for triggers for
-    #TODO: the rest of this xD
+def trigger_read(ctx, n_events=5):
+    #run_period = time.time() + 60*0.5 #How long you want to search for triggers for
+    trig_count_1 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
+    trig_count_2 = 0
+    i = 0
+    timestamp = datetime.now()
+    while i <= (n_events):
+        trig_count_2 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
 
+        if trig_count_2 != trig_count_1:
+            i += 1
+            print(i) # Just for monitoring purposes
+
+            readevent(ctx,dtObj= timestamp, info="trigger")
+            trig_count_1 = trig_count_2
+        else:
+            pass
 @minidaq.command()
 @click.pass_context
-def readevent(ctx):
-    #TODO: Unblock trigger before each readevent
-    #ctx.obj.trdbox.send_string(f"write {su704_pre_base+3} 1")
+def readevent(ctx, dtObj = datetime.now(), info=""):
+    #Unblock trdbox and dump chamber buffers
+    os.system("trdbox unblock")
+    os.system("trd dump 0")
+    os.system("trd dump 0")       #dump twice as sometimes there are errors
+    os.system("trd dump 1")
+    os.system("trd dump 1")    
+
     print("Collecting data..")
     ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
     print(ctx.obj.trdbox.recv_string())
@@ -93,10 +111,8 @@ def readevent(ctx):
     ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
     ctx.obj.sfp1.send_string("read")
     chamber_data.append(ctx.obj.sfp0.recv())
-   # ctx.obj.sfp1.send_string("read")
     chamber_data.append(ctx.obj.sfp1.recv())
 
-    dtObj = datetime.now()
     chamber_num = 1
     for rawdata in chamber_data:
         header = TrdboxHeader(rawdata)
@@ -107,14 +123,14 @@ def readevent(ctx):
             event =  event_t(header.timestamp, tuple([subevent]))
             print(subevent)
             print(event.subevents)
-            eventToFile(event,len(payload), dtObj, chamber_num) # could be len - 1
+            eventToFile(event,len(payload), dtObj, chamber_num, info) # could be len - 1
             chamber_num = 2
         else:
        	    raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
-def eventToFile(event, eventLength, dateTimeObj, chamber):
+def eventToFile(event, eventLength, dateTimeObj, chamber, info):
     timeStr = dateTimeObj.strftime("%Y-%m-%dT%H:%M:%S.%f")
-    fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f.o32")
+    fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f-"+info+".o32")
     print(fileName)
     # try:
     f = open(fileName, 'a')
@@ -127,25 +143,3 @@ def eventToFile(event, eventLength, dateTimeObj, chamber):
         f.write("\n".join([hex(d) for d in event.subevents[0].payload]))
     
     f.close()
-
-    # except:
-       	# print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
-#    dateTimeObj = datetime.now()
-#    filename = dateTimeObj.strftime("data/daq-1-%d%b%Y-%H%M%S%f.txt")
-#    try:
-#        f = open(filename,'w')
-#        f.write("\n".join([str(d) for d in data1]))
-#        f.close()
-#    except:
-#        print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
-
-    # filename = dateTimeObj.strftime("data/daq-2-%d%b%Y-%H%M%S%f.txt")
-    # try:
-    #     f = open(filename,'w')
-    #     f.write("\n".join([str(d) for d in data2]))
-    #     f.close()
-    # except:
-    #     print("File write unsuccessful, ensure there is a directory called 'data' in the current directory")
-
-    #print(len(data1))
-    # print(len(data2))
