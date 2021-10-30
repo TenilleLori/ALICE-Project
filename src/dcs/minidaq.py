@@ -70,9 +70,14 @@ def terminate():
 @minidaq.command()
 @click.pass_context
 def background_read(ctx):
-    run_period = time.time() + 60*0.5   #How many minutes you want to run it for
-    while (time.time() < run_period):
-        readevent(ctx)   #TODO: not sure if this works, just skeleton    
+    for i in range(100):
+        spacing = 2
+        sleepTime = np.random.exponential(scale = spacing)
+        time.sleep(sleepTime)
+        readevent(ctx, info = "backgound_" + str(spacing) + "s_spacing_exponential")
+    #run_period = time.time() + 60*0.5   #How many minutes you want to run it for
+    #while (time.time() < run_period):
+    #    readevent(ctx)   #TODO: not sure if this works, just skeleton    
 
 @minidaq.command()
 @click.pass_context
@@ -88,7 +93,7 @@ def readevent(ctx):
     print("Collecting data..")
     ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
     print(ctx.obj.trdbox.recv_string())
-       
+    
     chamber_data = []
     ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
     ctx.obj.sfp1.send_string("read")
