@@ -75,6 +75,7 @@ def background_read(ctx):
         sleepTime = np.random.exponential(scale = spacing)
         time.sleep(sleepTime)
         readevent(ctx, info = "backgound_" + str(spacing) + "s_spacing_exponential")
+        print("Background read " + str(i))
     #run_period = time.time() + 60*0.5   #How many minutes you want to run it for
     #while (time.time() < run_period):
     #    readevent(ctx)   #TODO: not sure if this works, just skeleton    
@@ -112,12 +113,16 @@ def readevent(ctx, dtObj = datetime.now(), info=""):
     ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
     print(ctx.obj.trdbox.recv_string())
     
+    # Including oscilloscope data in the .o32 file
+    #scopeReader = scoperead.Reader()
+    #waveforms = scopeReader.getdata()
+    
     chamber_data = []
     ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
     ctx.obj.sfp1.send_string("read")
     chamber_data.append(ctx.obj.sfp0.recv())
     chamber_data.append(ctx.obj.sfp1.recv())
-
+    
     chamber_num = 1
     for rawdata in chamber_data:
         header = TrdboxHeader(rawdata)
