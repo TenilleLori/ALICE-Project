@@ -160,7 +160,7 @@ def readevent(ctx, folder, info, reader = None, savescope = False):
             pass
        	    # raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
     if header.equipment_type == 0x10 and savescope == True:
-        scopeToFile(waveforms,timestamp,info)
+        scopeToFile(waveforms,scopeDir)
     else:
         pass
         # raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
@@ -189,7 +189,7 @@ def scopeToFile(waveforms, dirName):
     currentTime = datetime.now()
     #print(waveforms)
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
-    fileName = "data/"+dirName+".csv")
+    fileName = "data/"+dirName+".csv"
     f = open(fileName, 'a')
     f.write("# OSCILLOSCOPE\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: "+str(len(waveforms))+"\n")
     for i in range(len(waveforms[0])):
