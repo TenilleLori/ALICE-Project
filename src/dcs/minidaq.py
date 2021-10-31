@@ -111,7 +111,7 @@ def trigger_read(ctx, n_events):
 @click.argument('info',default='')
 @click.option('--saveScope', '-s', is_flag=True)
 @click.pass_context
-def readevent(ctx, timestamp, info, reader = None, savescope = False):
+def readevent(ctx, timestamp, info, reader = None, savescope = True):
     #Unblock trdbox and dump chamber buffers
     os.system("trdbox unblock")
     os.system("trdbox dump 0 >/dev/null 2>&1")
@@ -144,6 +144,7 @@ def readevent(ctx, timestamp, info, reader = None, savescope = False):
         else:
             pass
        	    # raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
+    savescope = True
     if header.equipment_type == 0x10 and savescope == True:
         scopeToFile(waveforms,timestamp,info)
     else:
@@ -174,12 +175,12 @@ def scopeToFile(waveforms, dateTimeObj, info):
     #print(waveforms)
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
     fileName = dateTimeObj.strftime("data/oscilloscope-daq-%d%b%Y-%H%M%S%f-"+info+".csv")
-    f = open(fileName, 'a')
+    f = open(fileName, 'w')
     f.write("# OSCILLOSCOPE\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: "+str(len(waveforms))+"\n")
     for i in range(len(waveforms[0])):
         #f.write("## WAVE\n## waveform: " + str(i)+"\n## size: " + str(len(waveforms[i])) + "\n")
         #f.write("\n".join([str(d) for d in waveforms[i]]))
-        f.write(waveforms[0][i]+","+ waveforms[1][i] + "," + waveforms[2][i])
+        f.write(str(waveforms[0][i])+","+ str(waveforms[1][i]) + "," + str(waveforms[2][i]))
         f.write("\n")
     f.close()
     #print("Error writing to file, please make sure there is a data folder in the directory you are running this command in")
