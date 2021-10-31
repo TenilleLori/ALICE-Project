@@ -123,12 +123,13 @@ def readevent(ctx, timestamp, info, reader = None, saveScope = False):
     print(ctx.obj.trdbox.recv_string())
     
     # Including oscilloscope data in the .o32 file
-    waveforms = reader.getData()
     chamber_data = []
     ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
     ctx.obj.sfp1.send_string("read")
     chamber_data.append(ctx.obj.sfp0.recv())
     chamber_data.append(ctx.obj.sfp1.recv())
+    
+    waveforms = reader.getData()
     
     chamber_num = 1
     for rawdata in chamber_data:
@@ -143,8 +144,6 @@ def readevent(ctx, timestamp, info, reader = None, saveScope = False):
        	    raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
     if header.equipment_type == 0x10 and saveScope == True:
         scopeToFile(waveforms,timestamp,info)
-    else:
-        raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
 def eventToFile(event, eventLength, dateTimeObj, chamber, info):
     currentTime = datetime.now()
