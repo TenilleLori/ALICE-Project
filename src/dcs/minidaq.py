@@ -19,7 +19,7 @@ import dcs.oscilloscopeRead.scopeRead as scopeRead
 from typing import NamedTuple
 from datetime import datetime
 from threading import Thread
-# from multiprocessing import Process
+from multiprocessing import Process
 
 from .header import TrdboxHeader
 from .linkparser import LinkParser, logflt
@@ -128,27 +128,33 @@ def readevent(ctx, folder, info, reader = None, savescope = False, bg = False, n
     bFin = False
     while not bFin:
         #Unblock trdbox and dump chamber buffers
-        try:
-            os.system("trdbox unblock")
-            os.system("trdbox dump 0 >/dev/null 2>&1")
-            os.system("trdbox dump 0 >/dev/null 2>&1")       #dump twice as sometimes there are errors
-            os.system("trdbox dump 1 >/dev/null 2>&1")
-            os.system("trdbox dump 1 >/dev/null 2>&1")    
+        # try:
+        os.system("trdbox unblock")
+        os.system("trdbox dump 0 >/dev/null 2>&1")
+        os.system("trdbox dump 0 >/dev/null 2>&1")       #dump twice as sometimes there are errors
+        os.system("trdbox dump 1 >/dev/null 2>&1")
+        os.system("trdbox dump 1 >/dev/null 2>&1")    
 
-            print("Collecting data..")
-            ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
-            print(ctx.obj.trdbox.recv_string())
-    
-            # Including oscilloscope data in the .o32 file
-            chamber_data = []
-            ctx.obj.sfp0.send_string("read") #send request for data from chamber 1    
-            ctx.obj.sfp1.send_string("read")
-            # time.sleep(2)
-            chamber_data.append(ctx.obj.sfp0.recv())
-            chamber_data.append(ctx.obj.sfp1.recv())
-            bFin = chamber_data != [] 
-        except:
-            continue
+        print("Collecting data..")
+        ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
+        print(ctx.obj.trdbox.recv_string())
+
+        # Including oscilloscope data in the .o32 file
+        chamber_data = []
+        p = Process(target = func, args = (ctx,chamber_data))
+        p.start()
+        p.join(10)
+        if p.is_alive():
+            p.terminate()
+            p.join()
+        # ctx.obj.sfp0.send_string("read") #send request for data from chamber 1    
+        # ctx.obj.sfp1.send_string("read")
+        # time.sleep(2)
+        # chamber_data.append(ctx.obj.sfp0.recv())
+        # chamber_data.append(ctx.obj.sfp1.recv())
+        bFin = chamber_data != [] 
+        # except:
+            # continue
 
     waveforms = reader.getData()
     
@@ -212,3 +218,12 @@ def scopeToFile(waveforms, dirName):
         f.write("\n")
     f.close()
     #print("Error writing to file, please make sure there is a data folder in the directory you are running this command in")
+
+def func(ctx, arr):
+    print("called")
+    ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
+    ctx.obj.sfp1.send_string("read")
+    # time.sleep(2)
+    arr.append(ctx.obj.sfp0.recv())
+    arr.append(ctx.obj.sfp1.recv())
+    print(arr)
