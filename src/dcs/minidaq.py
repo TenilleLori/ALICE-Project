@@ -72,12 +72,14 @@ def terminate():
 @click.pass_context
 def background_read(ctx, n_events):
     dt = datetime.now()
+    folderName = dt.strftime("daq-%d%b%Y-%H%M%S%f-background")
+    os.system("mkdir data/"+folderName)
     for i in range(n_events):
         print("Reading.."+str(i))
         spacing = 2
         sleepTime = np.random.exponential(scale = spacing)
         time.sleep(sleepTime)
-        ctx.invoke(readevent, timestamp=dt, info='background')
+        ctx.invoke(readevent, folder=folderName, info='background')
     
 
 @minidaq.command()
@@ -90,6 +92,8 @@ def trigger_read(ctx, n_events):
     trig_count_2 = 0
     i = 0
     dt = datetime.now()
+    folderName = dt.strftime("daq-%d%b%Y-%H%M%S%f-trigger")
+    os.system("mkdir data/"+folderName)
     while i <= (n_events):
         trig_count_2 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
 
@@ -97,16 +101,16 @@ def trigger_read(ctx, n_events):
             i += 1
             print("Event triggered.."+str(i)) # Just for monitoring purposes
 
-            ctx.invoke(readevent, timestamp=dt, info="trigger")
+            ctx.invoke(readevent, folder=folderName, info="trigger")
             trig_count_1 = trig_count_2
             os.system("trdbox unblock")
         else:
             pass
 @minidaq.command()
-@click.argument('timestamp', type=click.DateTime() , default=datetime.now())
+@click.argument('folder', default='')
 @click.argument('info',default='')
 @click.pass_context
-def readevent(ctx, timestamp, info):
+def readevent(ctx, folder, info):
     #Unblock trdbox and dump chamber buffers
     os.system("trdbox unblock")
     os.system("trdbox dump 0 >/dev/null 2>&1")
@@ -125,6 +129,10 @@ def readevent(ctx, timestamp, info):
     chamber_data.append(ctx.obj.sfp1.recv())
 
     chamber_num = 1
+    
+    timestamp = datetime.now()
+    eventDir = timestamp.strftime(folder+"/%H%M%Sf-"+info)  
+        
     for rawdata in chamber_data:
         header = TrdboxHeader(rawdata)
         if header.equipment_type == 0x10:
@@ -134,15 +142,15 @@ def readevent(ctx, timestamp, info):
             event =  event_t(header.timestamp, tuple([subevent]))
             print(subevent)
             print(event.subevents)
-            eventToFile(event,len(payload), timestamp, chamber_num, info) # could be len - 1
+            eventToFile(event,len(payload), eventDir, chamber_num) # could be len - 1
             chamber_num = 2
         else:
        	    raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
-def eventToFile(event, eventLength, dateTimeObj, chamber, info):
+def eventToFile(event, eventLength, dirName, chamber):
     currentTime = datetime.now()
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
-    fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f-"+info+".o32")
+    fileName = "data/"+dirName+".o32"
     print(fileName)
     # try:
     f = open(fileName, 'a')
