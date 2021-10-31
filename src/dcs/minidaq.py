@@ -18,8 +18,7 @@ import logging
 import dcs.oscilloscopeRead.scopeRead as scopeRead
 from typing import NamedTuple
 from datetime import datetime
-from threading import Thread
-from multiprocessing import Process
+import signal
 
 from .header import TrdboxHeader
 from .linkparser import LinkParser, logflt
@@ -119,6 +118,7 @@ def trigger_read(ctx, n_events):
             os.system("trdbox unblock")
         else:
             pass
+
 @minidaq.command()
 @click.argument('folder', default='')
 @click.argument('info',default='')
@@ -141,17 +141,22 @@ def readevent(ctx, folder, info, reader = None, savescope = False, bg = False, n
 
         # Including oscilloscope data in the .o32 file
         chamber_data = []
-        p = Process(target = func, args = (ctx,chamber_data))
-        p.start()
-        p.join(10)
-        if p.is_alive():
-            p.terminate()
-            p.join()
-        # ctx.obj.sfp0.send_string("read") #send request for data from chamber 1    
-        # ctx.obj.sfp1.send_string("read")
-        # time.sleep(2)
-        # chamber_data.append(ctx.obj.sfp0.recv())
-        # chamber_data.append(ctx.obj.sfp1.recv())
+        
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(5)
+        try:
+            ctx.obj.sfp0.send_string("read") #send request for data from chamber 1    
+            ctx.obj.sfp1.send_string("read")
+            # time.sleep(2)
+            chamber_data.append(ctx.obj.sfp0.recv())
+            chamber_data.append(ctx.obj.sfp1.recv())
+        except:
+            print("timeout")
+            os.system("trdbox unblock")
+            os.system("trdbox dump 0 >/dev/null 2>&1")
+            os.system("trdbox dump 0 >/dev/null 2>&1")       #dump twice as sometimes there are errors
+            os.system("trdbox dump 1 >/dev/null 2>&1")
+            os.system("trdbox dump 1 >/dev/null 2>&1")
         bFin = chamber_data != [] 
         # except:
             # continue
@@ -205,25 +210,17 @@ def eventToFile(event, eventLength, dirName, chamber):
 
 def scopeToFile(waveforms, dirName):
     currentTime = datetime.now()
-    #print(waveforms)
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
     fileName = "data/"+dirName+".o32"
     # fileName = dateTimeObj.strftime("data/oscilloscope-daq-%d%b%Y-%H%M%S%f-"+info+".csv")
     f = open(fileName, 'a')
     f.write("# OSCILLOSCOPE\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: "+str(len(waveforms[0]))+"\n")
     for i in range(len(waveforms[0])):
-        #f.write("## WAVE\n## waveform: " + str(i)+"\n## size: " + str(len(waveforms[i])) + "\n")
-        #f.write("\n".join([str(d) for d in waveforms[i]]))
         f.write(str(waveforms[0][i])+","+ str(waveforms[1][i]) + "," + str(waveforms[2][i]))
         f.write("\n")
     f.close()
     #print("Error writing to file, please make sure there is a data folder in the directory you are running this command in")
 
-def func(ctx, arr):
-    print("called")
-    ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
-    ctx.obj.sfp1.send_string("read")
-    # time.sleep(2)
-    arr.append(ctx.obj.sfp0.recv())
-    arr.append(ctx.obj.sfp1.recv())
-    print(arr)
+def handler(signum, frame):
+    print("Trying again")
+    raise Exception("Stallout")
