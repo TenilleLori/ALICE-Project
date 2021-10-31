@@ -141,26 +141,12 @@ def readevent(ctx, folder, info, reader = None, savescope = False, bg = False, n
     
             # Including oscilloscope data in the .o32 file
             chamber_data = []
-            x0 = Thread(target=thread_func, args = (1,0,ctx,chamber_data))
-            x1 = Thread(target=thread_func, args = (2,1,ctx,chamber_data))
-            x0.start()
-            x1.start()
-            x0.join(10)
-            x1.join(10)
-            print(chamber_data)
-            # ctx.obj.sfp0.send_string("read") #send request for data from chamber 1    
-            # ctx.obj.sfp1.send_string("read")
+            ctx.obj.sfp0.send_string("read") #send request for data from chamber 1    
+            ctx.obj.sfp1.send_string("read")
             # time.sleep(2)
-            # chamber_data.append(ctx.obj.sfp0.recv())
-            # chamber_data.append(ctx.obj.sfp1.recv())
-            if x0.is_alive():
-                pass
-                # x0.kill()
-            elif x1.is_alive():
-                pass
-                # x1.kill()
-            else:
-                bFin = True 
+            chamber_data.append(ctx.obj.sfp0.recv())
+            chamber_data.append(ctx.obj.sfp1.recv())
+            bFin = chamber_data != [] 
         except:
             continue
 
@@ -226,14 +212,3 @@ def scopeToFile(waveforms, dirName):
         f.write("\n")
     f.close()
     #print("Error writing to file, please make sure there is a data folder in the directory you are running this command in")
-
-def thread_func(name, index, ctx, arr):
-    if index == 0:
-        ctx.obj.sfp0.send_string("read")
-        arr.append(ctx.obj.sfp0.recv())
-        print(arr)
-    else:
-        ctx.obj.sfp1.send_string("read")
-        arr.append(ctx.obj.sfp2.recv())
-        print(arr)
-
