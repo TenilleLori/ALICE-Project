@@ -1,8 +1,10 @@
+
 #!/usr/bin/env python3
 
 import click
 import logging
 import itertools
+import math
 # from pprint import pprint
 
 from .header import TrdboxHeader
@@ -21,24 +23,26 @@ class digits_csv_file:
             self.outfile.write(f",A{i:02}")
         self.outfile.write("\n")
         
-    # Convert Readout board and ADC to X/Y-pos
-    def conv(rob,mcm,ch):
-        '''
-        Converts read_out_board and mcm to x and y positions
-        Parameters:
-                    rob = Readout board
-                    mcm = MCM position on ROB
-                    ch  = channel within MCM
-        returns: x,y position
-        '''
-
-        mcmcol = 7-(4*(rob%2) + mcm%4)
-        row = 4*(math.floor(rob/2)) + math.floor(mcm/4)
-        col = 18*mcmcol + ch - 1
-
-        return col,row
 
     def __call__(self,ev,det,rob,mcm,ch,digits):
+
+    # Convert Readout board and ADC to X/Y-pos
+        def conv(rob,mcm,ch):
+            '''
+            Converts read_out_board and mcm to x and y positions
+            Parameters:
+	                rob = Readout board
+	                mcm = MCM position on ROB
+	                ch  = channel within MCM
+            returns: x,y position
+            '''
+            
+            mcmcol = 7-(4*(rob%2) + mcm%4)
+            row = 4*(math.floor(rob/2)) + math.floor(mcm/4)
+            col = 18*mcmcol + ch - 1
+        
+            return col,row
+
         # TODO: calculate pad row/column from rob/mcm/channel
         padrow,padcol = conv(rob,mcm,ch)
 
