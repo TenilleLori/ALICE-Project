@@ -1,0 +1,6 @@
+setup.py
+oscilloscopeRead.egg-info/PKG-INFO
+oscilloscopeRead.egg-info/SOURCES.txt
+oscilloscopeRead.egg-info/dependency_links.txt
+oscilloscopeRead.egg-info/requires.txt
+oscilloscopeRead.egg-info/top_level.txt
