@@ -18,6 +18,8 @@ import logging
 import dcs.oscilloscopeRead.scopeRead as scopeRead
 from typing import NamedTuple
 from datetime import datetime
+from threading import Thread
+# from multiprocessing import Process
 
 from .header import TrdboxHeader
 from .linkparser import LinkParser, logflt
@@ -82,8 +84,10 @@ def background_read(ctx, n_events):
         print("Reading.."+str(i))
         spacing = 2
         sleepTime = np.random.exponential(scale = spacing)
+        print(sleepTime)
+        sleepTime = 2
         time.sleep(sleepTime)
-        ctx.invoke(readevent, folder=folderName, info='background', reader = scopeReader)
+        ctx.invoke(readevent, folder=folderName, info='background', reader = scopeReader, bg = True, n = i)
 
 @minidaq.command()
 @click.option('--n_events','-n', default=5, help='Number of triggered events you want to read.')
@@ -120,36 +124,53 @@ def trigger_read(ctx, n_events):
 @click.argument('info',default='')
 @click.option('--saveScope', '-s', is_flag=True)
 @click.pass_context
-<<<<<<< HEAD
-def readevent(ctx, timestamp, info, reader = None, savescope = True):
-=======
-def readevent(ctx, folder, info, reader = None, savescope = False):
->>>>>>> 1301f46810cec10b90498fad9afd4aff58c7623c
-    #Unblock trdbox and dump chamber buffers
-    os.system("trdbox unblock")
-    os.system("trdbox dump 0 >/dev/null 2>&1")
-    os.system("trdbox dump 0 >/dev/null 2>&1")       #dump twice as sometimes there are errors
-    os.system("trdbox dump 1 >/dev/null 2>&1")
-    os.system("trdbox dump 1 >/dev/null 2>&1")    
+def readevent(ctx, folder, info, reader = None, savescope = False, bg = False, n = 0):
+    bFin = False
+    while not bFin:
+        #Unblock trdbox and dump chamber buffers
+        try:
+            os.system("trdbox unblock")
+            os.system("trdbox dump 0 >/dev/null 2>&1")
+            os.system("trdbox dump 0 >/dev/null 2>&1")       #dump twice as sometimes there are errors
+            os.system("trdbox dump 1 >/dev/null 2>&1")
+            os.system("trdbox dump 1 >/dev/null 2>&1")    
 
-    print("Collecting data..")
-    ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
-    print(ctx.obj.trdbox.recv_string())
+            print("Collecting data..")
+            ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
+            print(ctx.obj.trdbox.recv_string())
     
-    # Including oscilloscope data in the .o32 file
-    chamber_data = []
-    ctx.obj.sfp0.send_string("read") #send request for data from chamber 1
-    ctx.obj.sfp1.send_string("read")
-    chamber_data.append(ctx.obj.sfp0.recv())
-    chamber_data.append(ctx.obj.sfp1.recv())
-    
+            # Including oscilloscope data in the .o32 file
+            chamber_data = []
+            x0 = Thread(target=thread_func, args = (1,0,ctx,chamber_data))
+            x1 = Thread(target=thread_func, args = (2,1,ctx,chamber_data))
+            x0.start()
+            x1.start()
+            x0.join(10)
+            x1.join(10)
+            print(chamber_data)
+            # ctx.obj.sfp0.send_string("read") #send request for data from chamber 1    
+            # ctx.obj.sfp1.send_string("read")
+            # time.sleep(2)
+            # chamber_data.append(ctx.obj.sfp0.recv())
+            # chamber_data.append(ctx.obj.sfp1.recv())
+            if x0.is_alive():
+                pass
+                # x0.kill()
+            elif x1.is_alive():
+                pass
+                # x1.kill()
+            else:
+                bFin = True 
+        except:
+            continue
+
     waveforms = reader.getData()
     
     chamber_num = 1
     
     timestamp = datetime.now()
-    eventDir = timestamp.strftime(folder+"/event-%H%M%Sf-"+info)
-    scopeDir = timestamp.strftime(folder+"/oscilloscope-%H%M%Sf-"+info)
+    eventDir = folder+"/event-"+str(n)+"-"+info
+    scopeDir = folder+"/oscilloscope-"+str(n)+"-"+info
         
     for rawdata in chamber_data:
         header = TrdboxHeader(rawdata)
@@ -194,9 +215,10 @@ def scopeToFile(waveforms, dirName):
     currentTime = datetime.now()
     #print(waveforms)
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
-    fileName = dateTimeObj.strftime("data/oscilloscope-daq-%d%b%Y-%H%M%S%f-"+info+".csv")
-    f = open(fileName, 'w')
-    f.write("# OSCILLOSCOPE\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: "+str(len(waveforms))+"\n")
+    fileName = "data/"+dirName+".o32"
+    # fileName = dateTimeObj.strftime("data/oscilloscope-daq-%d%b%Y-%H%M%S%f-"+info+".csv")
+    f = open(fileName, 'a')
+    f.write("# OSCILLOSCOPE\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: "+str(len(waveforms[0]))+"\n")
     for i in range(len(waveforms[0])):
         #f.write("## WAVE\n## waveform: " + str(i)+"\n## size: " + str(len(waveforms[i])) + "\n")
         #f.write("\n".join([str(d) for d in waveforms[i]]))
@@ -205,6 +227,13 @@ def scopeToFile(waveforms, dirName):
     f.close()
     #print("Error writing to file, please make sure there is a data folder in the directory you are running this command in")
 
-
-
+def thread_func(name, index, ctx, arr):
+    if index == 0:
+        ctx.obj.sfp0.send_string("read")
+        arr.append(ctx.obj.sfp0.recv())
+        print(arr)
+    else:
+        ctx.obj.sfp1.send_string("read")
+        arr.append(ctx.obj.sfp2.recv())
+        print(arr)
 
