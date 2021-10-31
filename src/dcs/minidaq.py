@@ -76,12 +76,14 @@ def background_read(ctx, n_events):
     scopeReader = scopeRead.Reader("ttyACM2")
     
     dt = datetime.now()
+    folderName = dt.strftime("daq-%d%b%Y-%H%M%S%f-background")
+    os.system("mkdir data/"+folderName)
     for i in range(n_events):
         print("Reading.."+str(i))
         spacing = 2
         sleepTime = np.random.exponential(scale = spacing)
         time.sleep(sleepTime)
-        ctx.invoke(readevent, timestamp=dt, info='background', reader = scopeReader)
+        ctx.invoke(readevent, folder=folderName, info='background', reader = scopeReader)
 
 @minidaq.command()
 @click.option('--n_events','-n', default=5, help='Number of triggered events you want to read.')
@@ -94,24 +96,31 @@ def trigger_read(ctx, n_events):
     os.system("trdbox unblock")
     trig_count_2 = 0
     i = 0
+    
     dt = datetime.now()
+    folderName = dt.strftime("daq-%d%b%Y-%H%M%S%f-trigger")
+    os.system("mkdir data/"+folderName)
+    
     while i < (n_events):
+
         trig_count_2 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
 
         if trig_count_2 != trig_count_1:
             i += 1
             print("Event triggered.."+str(i)) # Just for monitoring purposes
-            ctx.invoke(readevent, timestamp=dt, info="trigger",reader=scopeReader, savescope=True)
+
+            ctx.invoke(readevent, folder=folderName, info="trigger",reader=scopeReader, savescope=True)
+
             trig_count_1 = trig_count_2
             os.system("trdbox unblock")
         else:
             pass
 @minidaq.command()
-@click.argument('timestamp', type=click.DateTime() , default=datetime.now())
+@click.argument('folder', default='')
 @click.argument('info',default='')
 @click.option('--saveScope', '-s', is_flag=True)
 @click.pass_context
-def readevent(ctx, timestamp, info, reader = None, savescope = False):
+def readevent(ctx, folder, info, reader = None, savescope = False):
     #Unblock trdbox and dump chamber buffers
     os.system("trdbox unblock")
     os.system("trdbox dump 0 >/dev/null 2>&1")
@@ -133,13 +142,19 @@ def readevent(ctx, timestamp, info, reader = None, savescope = False):
     waveforms = reader.getData()
     
     chamber_num = 1
+    
+    timestamp = datetime.now()
+    eventDir = timestamp.strftime(folder+"/event-%H%M%Sf-"+info)
+    scopeDir = timestamp.strftime(folder+"/oscilloscope-%H%M%Sf-"+info)
+        
     for rawdata in chamber_data:
         header = TrdboxHeader(rawdata)
         if header.equipment_type == 0x10:
             payload = np.frombuffer(rawdata[header.header_size:], dtype=np.uint32)
        	    subevent = subevent_t(header.equipment_type, header.equipment_id, payload)
             event =  event_t(header.timestamp, tuple([subevent]))
-            eventToFile(event,len(payload), timestamp, chamber_num, info) # could be len - 1
+            eventToFile(event,len(payload), eventDir, chamber_num) # could be len - 1
+
             chamber_num = 2
         else:
             pass
@@ -150,10 +165,11 @@ def readevent(ctx, timestamp, info, reader = None, savescope = False):
         pass
         # raise ValueError(f"unhandled equipment type 0x{header.equipment_type:0x2}")
 
-def eventToFile(event, eventLength, dateTimeObj, chamber, info):
+def eventToFile(event, eventLength, dirName, chamber):
     currentTime = datetime.now()
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
-    fileName = dateTimeObj.strftime("data/daq-%d%b%Y-%H%M%S%f-"+info+".o32")
+    fileName = "data/"+dirName+".o32"
+    print(fileName)
     try:
         f = open(fileName, 'a')
         #Different Header for each chamber
@@ -169,11 +185,11 @@ def eventToFile(event, eventLength, dateTimeObj, chamber, info):
     except:
         print("Error writing to file, please make sure there is a data folder in the directory you are running this command in")
 
-def scopeToFile(waveforms, dateTimeObj, info):
+def scopeToFile(waveforms, dirName):
     currentTime = datetime.now()
     #print(waveforms)
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
-    fileName = dateTimeObj.strftime("data/oscilloscope-daq-%d%b%Y-%H%M%S%f-"+info+".csv")
+    fileName = "data/"+dirName+".csv")
     f = open(fileName, 'a')
     f.write("# OSCILLOSCOPE\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: "+str(len(waveforms))+"\n")
     for i in range(len(waveforms[0])):
