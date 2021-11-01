@@ -18,6 +18,8 @@ import logging
 import dcs.oscilloscopeRead.scopeRead as scopeRead
 from typing import NamedTuple
 from datetime import datetime
+from threading import Thread
+# from multiprocessing import Process
 import signal
 
 from .header import TrdboxHeader
@@ -112,23 +114,32 @@ def trigger_read(ctx, n_events):
             i += 1
             print("Event triggered.."+str(i)) # Just for monitoring purposes
 
-            ctx.invoke(readevent, folder=folderName, info="trigger",reader=scopeReader, savescope=True)
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(10)
 
-            trig_count_1 = trig_count_2
+            try:
+                 ctx.invoke(readevent, folder=folderName, info="trigger",reader=scopeReader, savescope=True, bg = False, n = i)
+            except:
+                 i -= 1
+            try:
+                 time.sleep(10)
+            except:
+                 pass
+
+            trig_count_1 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
             os.system("trdbox unblock")
         else:
             pass
-
 @minidaq.command()
 @click.argument('folder', default='')
 @click.argument('info',default='')
 @click.option('--saveScope', '-s', is_flag=True)
 @click.pass_context
 def readevent(ctx, folder, info, reader = None, savescope = False, bg = False, n = 0):
-    bFin = False
-    while not bFin:
+    # bFin = False
+    # while not bFin:
         #Unblock trdbox and dump chamber buffers
-        # try:
+    try:
         os.system("trdbox unblock")
         os.system("trdbox dump 0 >/dev/null 2>&1")
         os.system("trdbox dump 0 >/dev/null 2>&1")       #dump twice as sometimes there are errors
@@ -138,28 +149,17 @@ def readevent(ctx, folder, info, reader = None, savescope = False, bg = False, n
         print("Collecting data..")
         ctx.obj.trdbox.send_string(f"write 0x08 1") # send trigger
         print(ctx.obj.trdbox.recv_string())
-
+    
         # Including oscilloscope data in the .o32 file
         chamber_data = []
-        
-        signal.signal(signal.SIGALRM, handler)
-        signal.alarm(5)
-        try:
-            ctx.obj.sfp0.send_string("read") #send request for data from chamber 1    
-            ctx.obj.sfp1.send_string("read")
-            # time.sleep(2)
-            chamber_data.append(ctx.obj.sfp0.recv())
-            chamber_data.append(ctx.obj.sfp1.recv())
-        except:
-            print("timeout")
-            os.system("trdbox unblock")
-            os.system("trdbox dump 0 >/dev/null 2>&1")
-            os.system("trdbox dump 0 >/dev/null 2>&1")       #dump twice as sometimes there are errors
-            os.system("trdbox dump 1 >/dev/null 2>&1")
-            os.system("trdbox dump 1 >/dev/null 2>&1")
+        ctx.obj.sfp0.send_string("read") #send request for data from chamber 1    
+        ctx.obj.sfp1.send_string("read")
+        # time.sleep(2)
+        chamber_data.append(ctx.obj.sfp0.recv())
+        chamber_data.append(ctx.obj.sfp1.recv())
         bFin = chamber_data != [] 
-        # except:
-            # continue
+    except:
+        pass
 
     waveforms = reader.getData()
     
@@ -210,17 +210,20 @@ def eventToFile(event, eventLength, dirName, chamber):
 
 def scopeToFile(waveforms, dirName):
     currentTime = datetime.now()
+    #print(waveforms)
     timeStr = currentTime.strftime("%Y-%m-%dT%H:%M:%S.%f")
     fileName = "data/"+dirName+".o32"
     # fileName = dateTimeObj.strftime("data/oscilloscope-daq-%d%b%Y-%H%M%S%f-"+info+".csv")
     f = open(fileName, 'a')
     f.write("# OSCILLOSCOPE\n# format version: 1.0\n# time stamp: "+timeStr+"\n# data blocks: "+str(len(waveforms[0]))+"\n")
     for i in range(len(waveforms[0])):
+        #f.write("## WAVE\n## waveform: " + str(i)+"\n## size: " + str(len(waveforms[i])) + "\n")
+        #f.write("\n".join([str(d) for d in waveforms[i]]))
         f.write(str(waveforms[0][i])+","+ str(waveforms[1][i]) + "," + str(waveforms[2][i]))
         f.write("\n")
     f.close()
     #print("Error writing to file, please make sure there is a data folder in the directory you are running this command in")
 
 def handler(signum, frame):
-    print("Trying again")
-    raise Exception("Stallout")
+    print("trying again")
+    raise Exception("stallout")
