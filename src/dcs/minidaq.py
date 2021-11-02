@@ -76,7 +76,7 @@ def terminate():
 @click.pass_context
 def background_read(ctx, n_events):
     # Including oscilloscope data in the .o32 file
-    scopeReader = scopeRead.Reader("ttyACM2")
+    scopeReader = scopeRead.Reader("ttyACM3")
     
     dt = datetime.now()
     folderName = dt.strftime("daq-%d%b%Y-%H%M%S%f-background")
@@ -95,7 +95,7 @@ def background_read(ctx, n_events):
 @click.pass_context
 
 def trigger_read(ctx, n_events):
-    scopeReader = scopeRead.Reader("ttyACM2")
+    scopeReader = scopeRead.Reader("ttyACM3")
     #run_period = time.time() + 60*0.5 #How long you want to search for triggers for
     trig_count_1 = int(os.popen('trdbox reg-read 0x102').read().split('\n')[0])
     os.system("trdbox unblock")

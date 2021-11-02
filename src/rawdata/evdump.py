@@ -48,5 +48,9 @@ def evdump(source, loglevel, suppress, quiet, skip_events):
             for subevent in event.subevents:
                 lp.process(subevent.payload)
         else:
-            for wave in event.waveforms:
-                print(subevent.payload)
+            print("wave at time: " + event.timestamp.strftime("%d%b%Y-%H%M%S%f"))
+            wave_print(event.payload)
+
+def wave_print(arr):
+    for i in range(len(arr)//3):
+        print(str(arr[3*i])+', '+str(arr[3*i+1])+', '+str(arr[3*i+2]))
