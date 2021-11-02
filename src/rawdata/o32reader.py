@@ -13,17 +13,12 @@ class event_t(NamedTuple):
 class oscevent_t(NamedTuple):
     oscilloscope: bool
     timestamp: datetime
-    waveforms: tuple
+    payload: numpy.ndarray
 
 class subevent_t(NamedTuple):
     # timestamp: datetime
     equipment_type: int
     equipment_id: int
-    payload: numpy.ndarray
-
-class wave_t(NamedTuple):
-    waveform: int
-    payload_size: int
     payload: numpy.ndarray
 
 class o32reader:
@@ -80,7 +75,7 @@ class o32reader:
             subevents = tuple([self.read_subevent() for i in range(header['data blocks'])])
             return event_t(False, header['time stamp'], subevents)
         else:
-            waveforms = tuple([self.read_wave() for i in range(header['data blocks'])])
+            waveforms = self.read_wave(header['data blocks'])
             return oscevent_t(True, header['time stamp'], waveforms)
 
 
@@ -152,25 +147,15 @@ class o32reader:
 
         return subevent_t(equipment_type, equipment_id, payload)
 
-    def read_wave(self):
-        waveform = dict()
-
-        line = self.read_line()
-        if line != '## WAVE':
-            print("line: "+line)
-            raise Exception('file format', 'invalid file format')
-
-        m = re.search('## *waveform: *(.*)', self.read_line())
-        waveform = int(m.group(1))
-
-        m = re.search('## *size: *(.*)', self.read_line())
-        payload_size = int(m.group(1))
-
-        payload = numpy.zeros(payload_size)
+    def read_wave(self, payload_size):
+        payload = numpy.zeros(payload_size*3)
         for i in range(payload_size):
-            payload[i] = float(self.read_line())
+            line = self.read_line().split(',')
+            payload[3*i] = float(line[0])
+            payload[3*i+1] = float(line[1])
+            payload[3*i+2] = float(line[2])
 
-        return wave_t(waveform, payload_size, payload)
+        return payload
 
     def read_line(self):
 
