@@ -6,15 +6,20 @@ from datetime import datetime
 from typing import NamedTuple
 
 class event_t(NamedTuple):
+    oscilloscope: bool
     timestamp: datetime
     subevents: tuple
+
+class oscevent_t(NamedTuple):
+    oscilloscope: bool
+    timestamp: datetime
+    payload: numpy.ndarray
 
 class subevent_t(NamedTuple):
     # timestamp: datetime
     equipment_type: int
     equipment_id: int
     payload: numpy.ndarray
-
 
 class o32reader:
     """Reader class for files in the .o32 format.
@@ -66,9 +71,12 @@ class o32reader:
 
         header = self.read_event_header()
 
-        subevents = tuple([self.read_subevent() for i in range(header['data blocks'])])
-
-        return event_t(header['time stamp'], subevents)
+        if not header['oscilloscope']:
+            subevents = tuple([self.read_subevent() for i in range(header['data blocks'])])
+            return event_t(False, header['time stamp'], subevents)
+        else:
+            waveforms = self.read_wave(header['data blocks'])
+            return oscevent_t(True, header['time stamp'], waveforms)
 
 
     def read_event_header(self):
@@ -79,9 +87,14 @@ class o32reader:
         if not line:
             raise StopIteration
 
+        hdr['oscilloscope'] = False 
+
         if line != '# EVENT':
-            print(line)
-            raise Exception('file format', 'invalid file format')
+            if line != '# OSCILLOSCOPE':
+            	print(line)
+            	raise Exception('file format', 'invalid file format')
+            else:
+                hdr['oscilloscope'] = True
 
         # Extract header version number (should always be 1.0)
         m = re.search('# *format version: *(.*)', self.read_line())
@@ -134,7 +147,15 @@ class o32reader:
 
         return subevent_t(equipment_type, equipment_id, payload)
 
+    def read_wave(self, payload_size):
+        payload = numpy.zeros(payload_size*3)
+        for i in range(payload_size):
+            line = self.read_line().split(',')
+            payload[3*i] = float(line[0])
+            payload[3*i+1] = float(line[1])
+            payload[3*i+2] = float(line[2])
 
+        return payload
 
     def read_line(self):
 

@@ -229,6 +229,12 @@ def reset(ctx):
 #to see all the registers
 
 @trdbox.command()
+@click.argument('sfp')
+@click.pass_context
+def dump(ctx, sfp):
+    ctx.obj.exec(f"dump sfp{sfp}")
+
+@trdbox.command()
 @click.argument('address', callback=lambda c,p,x: int(x,0))
 @click.pass_context
 def reg_read(ctx, address):
@@ -243,6 +249,7 @@ def reg_read(ctx, address):
 
 def read(ctx, address):
     rd = int(ctx.obj.exec(f"read {address}"),16)
+    print(rd)
     print(f"Read from 0x{address:04x}: {rd} = 0x{rd:08x}")
     return rd
 

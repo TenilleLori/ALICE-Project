@@ -12,7 +12,7 @@ from .o32reader import o32reader
 from .zmqreader import zmqreader
 
 @click.command()
-@click.argument('source', default='tcp://localhost:7776')
+@click.argument('source', default='tcp://localhost:7750')
 @click.option('-o', '--loglevel', default=logging.INFO)
 @click.option('-s', '--suppress', multiple=True)
 @click.option('-q', '--quiet', count=True)
@@ -44,6 +44,13 @@ def evdump(source, loglevel, suppress, quiet, skip_events):
     for evno,event in enumerate(reader):
         if evno<skip_events:
             continue
+        if not event[0]:
+            for subevent in event.subevents:
+                lp.process(subevent.payload)
+        else:
+            print("wave at time: " + event.timestamp.strftime("%d%b%Y-%H%M%S%f"))
+            wave_print(event.payload)
 
-        for subevent in event.subevents:
-            lp.process(subevent.payload)
+def wave_print(arr):
+    for i in range(len(arr)//3):
+        print(str(arr[3*i])+', '+str(arr[3*i+1])+', '+str(arr[3*i+2]))
